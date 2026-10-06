@@ -1,0 +1,10 @@
+endpointUrl: http://localhost:8080
+method: POST
+curlExecutable: curl
+connectTimeoutSeconds: 10
+requestTimeoutSeconds: 60
+outputDirectory: results
+payloadTypes:
+  - contentType: json, xml
+    transferEncoding: GZ,CSB
+    payloadSize: CM,SM

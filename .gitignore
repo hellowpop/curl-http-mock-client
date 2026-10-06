@@ -1,0 +1,7 @@
+/target/
+/.m2-cache/
+/results/
+/verification/
+*.log
+.idea/
+*.iml
