@@ -49,8 +49,8 @@ Ctrl-C를 누르면 새 요청을 시작하지 않고 현재 curl을 종료합�
 endpointUrl: http://localhost:8080/api
 method: POST
 curlExecutable: curl
-connectTimeoutSeconds: 10
-requestTimeoutSeconds: 60
+connectTimeoutSeconds: 3
+requestTimeoutSeconds: 3
 outputDirectory: results
 payloadTypes:
   - contentType: json
@@ -76,11 +76,15 @@ payloadTypes:
 
 전체 예시는 `samples/config-multi.yml`입니다. Excel에서도 `PayloadTypes` 시트의 각 셀에 `json, xml`, `GZ,CSB`, `CM,SM`처럼 입력할 수 있습니다. YAML↔Excel 변환 출력은 조합별로 확장된 단일 값 레코드를 저장하여 요청 순서와 실행 횟수를 보존합니다. 기존 단일 값 설정도 그대로 지원합니다.
 
+`requestTimeoutSeconds`는 curl `--max-time`에 적용되는 전체 요청 제한(초)이며, 생략 시 **3초**입니다. `connectTimeoutSeconds`는 curl `--connect-timeout`에 적용되는 연결 제한(초)이며, 생략 시 **3초**입니다. 둘 다 양의 정수로 지정하며, 설정한 값은 YAML↔Excel 변환 후에도 유지됩니다. timeout 발생 시 curl exit code `28`과 요청/응답 파일 및 결과 Excel을 저장합니다.
+
+각 `payloadTypes` 항목에도 `requestTimeoutSeconds`, `connectTimeoutSeconds`를 지정할 수 있습니다. 적용 우선순위는 **항목별 값 → 상위 설정값 → 기본 3초**이며 두 옵션은 독립적으로 상속합니다. 콤마로 확장된 모든 조합에 해당 항목의 timeout이 유지됩니다. 항목별 값은 양의 정수이며 null, 소수, 문자열 숫자는 허용하지 않습니다. 예시는 `samples/config-payload-timeouts.yml`입니다.
+
 `outputDirectory`의 상대 경로는 **설정 파일 위치**를 기준으로 해석합니다. 따라서 제공 샘플의 기본 결과 위치는 `samples/results`입니다. 다른 디렉토리로 설정 파일을 변환할 때는 절대 경로를 기록하여 같은 결과 위치를 유지합니다. 알 수 없는 키, 중복 키, 잘못된 값, 빈 배열은 실행 전에 거부합니다. YAML timeout은 따옴표 없는 정수로, CT/TE/PS는 표에 나온 문자열로 입력합니다. 숫자 enum 인덱스나 boolean을 문자열로 자동 변환하지 않습니다.
 
 ## Excel 설정
 
-`Settings` 시트는 `key`, `value` 열로 endpoint와 실행 설정을 기록합니다. `PayloadTypes` 시트는 `contentType`, `transferEncoding`, `payloadSize` 열로 배열을 기록합니다. 첫 행의 열 이름은 정확히 유지해야 합니다. timeout 값은 정수 숫자 셀 또는 정수 문자열 셀로 입력합니다. 수식 셀은 허용하지 않습니다. `.xlsx`만 지원합니다.
+`Settings` 시트는 `key`, `value` 열로 endpoint와 실행 설정을 기록합니다. `PayloadTypes` 시트는 `contentType`, `transferEncoding`, `payloadSize`, `connectTimeoutSeconds`, `requestTimeoutSeconds` 열로 배열을 기록합니다. timeout 셀을 비우면 상위 설정값을 상속합니다. 기존 3열 파일과 선택적 timeout 열 하나만 있는 파일도 읽을 수 있습니다. 첫 행의 열 이름은 정확히 유지해야 합니다. timeout 값은 정수 숫자 셀 또는 정수 문자열 셀로 입력합니다. 수식 셀은 허용하지 않습니다. `.xlsx`만 지원합니다.
 
 ## Payload와 endpoint 경로
 

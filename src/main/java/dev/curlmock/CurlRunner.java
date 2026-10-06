@@ -33,9 +33,11 @@ final class CurlRunner {
             try (var gzip = new GZIPOutputStream(Files.newOutputStream(wireBody))) { gzip.write(payload.body()); }
         }
         String url = config.endpointUrl().replaceAll("/+$", "") + type.path();
+        int connectTimeout = type.effectiveConnectTimeoutSeconds(config);
+        int requestTimeout = type.effectiveRequestTimeoutSeconds(config);
         var command = new ArrayList<>(List.of(config.curlExecutable(), "--disable", "--silent", "--show-error", "--verbose",
                 "--http1.1", "--globoff", "--request", config.method(), "--url", url,
-                "--connect-timeout", config.connectTimeoutSeconds().toString(), "--max-time", config.requestTimeoutSeconds().toString(),
+                "--connect-timeout", Integer.toString(connectTimeout), "--max-time", Integer.toString(requestTimeout),
                 "--output", response.toString(), "--dump-header", responseHeadersFile.toString(),
                 "--write-out", "\nCURLMOCK_HTTP_STATUS:%{http_code}\n", "--header", "Content-Type: " + payload.contentType(), "--header", "Expect:"));
         if (type.transferEncoding().chunked()) command.addAll(List.of("--header", "Transfer-Encoding: chunked", "--header", "Content-Length:", "--upload-file", "-"));
@@ -70,7 +72,7 @@ final class CurlRunner {
                         }
                         return null;
                     });
-                    if (!process.waitFor((long) config.requestTimeoutSeconds() + 5, TimeUnit.SECONDS)) {
+                    if (!process.waitFor((long) requestTimeout + 5, TimeUnit.SECONDS)) {
                         process.destroyForcibly();
                         process.waitFor();
                         exit = 28;

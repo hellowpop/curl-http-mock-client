@@ -12,7 +12,7 @@ public record ClientConfig(String endpointUrl, String method, String curlExecuta
         for (var ct : ContentType.values()) for (var te : TransferEncoding.values()) for (var ps : List.of(PayloadSize.SM, PayloadSize.CM, PayloadSize.LG)) {
             types.add(new PayloadType(ct, te, ps));
         }
-        return new ClientConfig("http://localhost:8080", "POST", "curl", 10, 60, "results", List.copyOf(types));
+        return new ClientConfig("http://localhost:8080", "POST", "curl", 3, 3, "results", List.copyOf(types));
     }
     public void validate() {
         if (endpointUrl == null || endpointUrl.isBlank()) throw new IllegalArgumentException("endpointUrl is required");
@@ -31,6 +31,9 @@ public record ClientConfig(String endpointUrl, String method, String curlExecuta
             var entry = payloadTypes.get(i);
             if (entry == null || entry.contentType() == null || entry.transferEncoding() == null || entry.payloadSize() == null)
                 throw new IllegalArgumentException("payloadTypes[" + i + "] requires contentType, transferEncoding and payloadSize");
+            if ((entry.connectTimeoutSeconds() != null && entry.connectTimeoutSeconds() <= 0)
+                    || (entry.requestTimeoutSeconds() != null && entry.requestTimeoutSeconds() <= 0))
+                throw new IllegalArgumentException("payloadTypes[" + i + "] timeouts must be positive integers");
         }
     }
 

@@ -76,6 +76,10 @@ public final class ConfigFiles {
         if (entries == null || !entries.isArray()) throw new IllegalArgumentException("payloadTypes must be an array");
         for (JsonNode entry : entries) {
             if (!entry.isObject()) throw new IllegalArgumentException("Each payloadTypes entry must be an object");
+            for (String key : java.util.List.of("connectTimeoutSeconds", "requestTimeoutSeconds")) {
+                if (entry.has(key) && (!entry.get(key).isIntegralNumber() || !entry.get(key).canConvertToInt()))
+                    throw new IllegalArgumentException("payloadTypes." + key + " must be an integer");
+            }
             for (String key : java.util.List.of("contentType", "transferEncoding", "payloadSize")) {
                 if (!entry.has(key) || !entry.get(key).isTextual()) throw new IllegalArgumentException(key + " must be a string");
             }

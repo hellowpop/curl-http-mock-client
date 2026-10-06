@@ -203,6 +203,63 @@ class CurlIntegrationTest {
         }
     }
 
+    @Test void omittedTimeoutStopsCurlAfterThreeSecondsAndKeepsResult() throws Exception {
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            var server = server(executor);
+            server.createContext("/", ex -> {
+                ex.getRequestBody().readAllBytes();
+                try { Thread.sleep(4500); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+                try { ex.sendResponseHeaders(200, -1); } finally { ex.close(); }
+            });
+            server.start();
+            try {
+                Path configFile = temp.resolve("default-timeout.yml");
+                Files.writeString(configFile, "endpointUrl: http://127.0.0.1:" + server.getAddress().getPort()
+                        + "\npayloadTypes: [{contentType: json, transferEncoding: NA, payloadSize: SM}]\n");
+                var run = new BatchExecutor().run(ConfigFiles.read(configFile));
+                var transaction = run.transactions().getFirst();
+                assertFalse(run.success());
+                assertEquals(28, transaction.curlExitCode());
+                assertTrue(Files.exists(run.workbook()));
+                assertTrue(Files.readString(transaction.curlLog()).contains("\"--max-time\",\"3\""));
+            } finally { server.stop(0); }
+        }
+    }
+
+    @Test void appliesPayloadTimeoutOverridesAndFallsBackToGlobalSettings() throws Exception {
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            var server = server(executor);
+            server.createContext("/", ex -> {
+                ex.getRequestBody().readAllBytes();
+                try { Thread.sleep(1800); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+                try { ex.sendResponseHeaders(200, -1); } finally { ex.close(); }
+            });
+            server.start();
+            try {
+                Path configFile = temp.resolve("payload-timeouts.yml");
+                Files.writeString(configFile, "endpointUrl: http://127.0.0.1:" + server.getAddress().getPort()
+                        + "\nconnectTimeoutSeconds: 3\nrequestTimeoutSeconds: 4\npayloadTypes:\n"
+                        + "  - {contentType: 'json,xml', transferEncoding: NA, payloadSize: SM, connectTimeoutSeconds: 2, requestTimeoutSeconds: 1}\n"
+                        + "  - {contentType: form, transferEncoding: NA, payloadSize: SM}\n");
+                var run = new BatchExecutor().run(ConfigFiles.read(configFile));
+                assertEquals(3, run.transactions().size());
+                for (int i = 0; i < 2; i++) {
+                    var tx = run.transactions().get(i);
+                    assertEquals(28, tx.curlExitCode());
+                    String log = Files.readString(tx.curlLog());
+                    assertTrue(log.contains("\"--max-time\",\"1\""));
+                    assertTrue(log.contains("\"--connect-timeout\",\"2\""));
+                }
+                var inherited = run.transactions().get(2);
+                assertTrue(inherited.success());
+                String log = Files.readString(inherited.curlLog());
+                assertTrue(log.contains("\"--max-time\",\"4\""));
+                assertTrue(log.contains("\"--connect-timeout\",\"3\""));
+                assertTrue(Files.exists(run.workbook()));
+            } finally { server.stop(0); }
+        }
+    }
+
     @Test void recordsMissingCurlAndConnectionRefusal() throws Exception {
         var type = new PayloadType(ContentType.FORM, TransferEncoding.NA, PayloadSize.SM);
         var missing = new ClientConfig("http://127.0.0.1:1", "POST", "no-such-curl-executable", 1, 1, temp.toString(), List.of(type));

@@ -16,12 +16,26 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 final class ExcelConfigCodec {
     private static final Set<String> KEYS = Set.of("endpointUrl", "method", "curlExecutable", "connectTimeoutSeconds", "requestTimeoutSeconds", "outputDirectory");
     private static final List<String> TYPE_COLUMNS = List.of("contentType", "transferEncoding", "payloadSize");
+    private static final List<String> TIMEOUT_COLUMNS = List.of("connectTimeoutSeconds", "requestTimeoutSeconds");
     private ExcelConfigCodec() {}
 
     static JsonNode read(Path path) throws IOException {
         try (var stream = Files.newInputStream(path); var book = new XSSFWorkbook(stream)) {
             Sheet settings = requireSheet(book, "Settings", List.of("key", "value"));
-            Sheet types = requireSheet(book, "PayloadTypes", TYPE_COLUMNS);
+            Sheet types = book.getSheet("PayloadTypes");
+            if (types == null || types.getRow(0) == null) throw new IllegalArgumentException("Missing sheet/header: PayloadTypes");
+            var columns = new java.util.ArrayList<>(TYPE_COLUMNS);
+            for (int i = 0; i < 3; i++) {
+                if (!TYPE_COLUMNS.get(i).equals(text(types.getRow(0).getCell(i))))
+                    throw new IllegalArgumentException("Invalid column in PayloadTypes: expected " + TYPE_COLUMNS.get(i));
+            }
+            for (int i = 3; i < types.getRow(0).getLastCellNum(); i++) {
+                String column = text(types.getRow(0).getCell(i));
+                if (column.isEmpty() && i == types.getRow(0).getLastCellNum() - 1) break;
+                if (!TIMEOUT_COLUMNS.contains(column) || columns.contains(column))
+                    throw new IllegalArgumentException("Invalid or duplicate PayloadTypes column: " + column);
+                columns.add(column);
+            }
             var root = ConfigFiles.MAPPER.createObjectNode();
             var seen = new HashSet<String>();
             for (int i = 1; i <= settings.getLastRowNum(); i++) {
@@ -43,7 +57,14 @@ final class ExcelConfigCodec {
                 if (blank(row)) continue;
                 var entry = entries.addObject();
                 for (int column = 0; column < 3; column++) entry.put(TYPE_COLUMNS.get(column), text(row.getCell(column)));
-                rejectExtraCells(row, 3);
+                for (int column = 3; column < columns.size(); column++) {
+                    String value = text(row.getCell(column));
+                    if (!value.isEmpty()) {
+                        if (!value.matches("[0-9]+")) throw new IllegalArgumentException(columns.get(column) + " must be a positive integer");
+                        entry.put(columns.get(column), Integer.parseInt(value));
+                    }
+                }
+                rejectExtraCells(row, columns.size());
             }
             return root;
         }
@@ -66,15 +87,19 @@ final class ExcelConfigCodec {
             settings.setColumnWidth(0, 30 * 256);
             settings.setColumnWidth(1, 80 * 256);
             Sheet types = book.createSheet("PayloadTypes");
-            ExcelStyles.header(book, types, TYPE_COLUMNS);
+            var columns = new java.util.ArrayList<>(TYPE_COLUMNS);
+            columns.addAll(TIMEOUT_COLUMNS);
+            ExcelStyles.header(book, types, columns);
             int index = 1;
             for (var type : config.payloadTypes()) {
                 Row row = types.createRow(index++);
                 row.createCell(0).setCellValue(type.contentType().token());
                 row.createCell(1).setCellValue(type.transferEncoding().name());
                 row.createCell(2).setCellValue(type.payloadSize().token());
+                if (type.connectTimeoutSeconds() != null) row.createCell(3).setCellValue(type.connectTimeoutSeconds());
+                if (type.requestTimeoutSeconds() != null) row.createCell(4).setCellValue(type.requestTimeoutSeconds());
             }
-            for (int i = 0; i < 3; i++) types.setColumnWidth(i, 24 * 256);
+            for (int i = 0; i < columns.size(); i++) types.setColumnWidth(i, 26 * 256);
             ExcelStyles.filter(settings);
             ExcelStyles.filter(types);
             try (var out = Files.newOutputStream(path)) { book.write(out); }

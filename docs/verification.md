@@ -57,3 +57,13 @@ Windows 실제 터미널에서 최종 JAR를 실행하고 첫 요청 완료/두 
 변경 전 직접 크기 미지원 실패 21건을 재현하고, 수정 후 전체 107개 테스트와 Maven verify가 통과했습니다. 실제 HTTP 서버의 수신 본문을 gzip 복원 후 포함하여 확인하는 24개 조합(4 CT × NA/GZ/CSB × 20K/1M)도 성공했습니다.
 
 최종 JAR의 실제 실행도 24건 모두 성공했고, request payload 파일의 20,480/1,048,576바이트 크기와 YAML→Excel→YAML의 24개 설정 보존을 확인했습니다. 결과: `verification/custom-sizes/results/20261006_140912_740_1b29e224-b823-47dc-af16-c90433615965.xlsx`. 로그: `verification/logs/custom-sizes-red.log`, `custom-sizes-verify.log`, `verification/custom-sizes/jar-run.log`. 읽기 전용 리뷰에서 추가 수정 사항은 없었습니다.
+
+
+## Curl timeout 기본값 (2026-10-06)
+
+requestTimeoutSeconds (--max-time)와 connectTimeoutSeconds (--connect-timeout)의 미지정 기본값을 각각 3초로 변경했습니다. YAML·Excel에서 누락 시 3초 적용, 지정값(연결 2초/전체 7초)의 양방향 변환 보존, 실제 curl의 기본 3초 timeout(exit code 28)과 결과 파일 저장을 검증했습니다. 전체 110개 테스트에서 실패/오류/건너뛰기 0건, Maven verify BUILD SUCCESS. 최종 JAR로 Excel 샘플을 재생성하고 YAML 변환 결과의 timeout 3초를 확인했습니다. 로그: verification/logs/timeout-default-red.log, timeout-default-verify.log.
+
+
+## payloadTypes별 timeout (2026-10-06)
+
+payloadTypes 항목에서 connectTimeoutSeconds/requestTimeoutSeconds를 독립적으로 지정할 수 있습니다. 항목 값 → 상위 설정 → 3초 순서로 적용합니다. CSV 확장/Excel·YAML 왕복 보존, 기존 Excel 3열 호환, 잘못된 값 거부 및 실제 curl의 항목별 종료와 상위 설정 상속을 검증했습니다. 전체 120개 테스트 통과, Maven verify BUILD SUCCESS. 로그: verification/logs/payload-timeout-red.log, payload-timeout-verify.log.

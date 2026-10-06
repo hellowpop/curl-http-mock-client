@@ -1,0 +1,11 @@
+endpointUrl: http://localhost:8080
+outputDirectory: results
+payloadTypes:
+  - contentType: json, xml
+    transferEncoding: GZ,CSB
+    payloadSize: CM,20K
+    requestTimeoutSeconds: 5
+    connectTimeoutSeconds: 2
+  - contentType: form
+    transferEncoding: NA
+    payloadSize: SM

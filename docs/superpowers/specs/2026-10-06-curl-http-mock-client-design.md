@@ -22,8 +22,8 @@ YAML 예시:
 endpointUrl: http://localhost:8080
 method: POST
 curlExecutable: curl
-connectTimeoutSeconds: 10
-requestTimeoutSeconds: 60
+connectTimeoutSeconds: 3
+requestTimeoutSeconds: 3
 outputDirectory: results
 payloadTypes:
   - contentType: json
@@ -109,3 +109,6 @@ results/
 6. README에 한국어 실행 안내, 설정 스키마, 전송 의미, 결과 구조, Java 21/curl 요구사항을 기록한다.
 
 로컬에 `D:/01.app/java/jdk-21.0.3`이 발견되었다. 기본 Java 17 설정은 변경하지 않고 빌드 프로세스에 한해 Java 21을 지정한다. 현재 디렉토리는 Git 저장소가 아니므로 설계 문서를 파일로 보존하며 자동으로 Git 초기화/커밋하지 않는다.
+
+
+payloadTypes 항목의 connectTimeoutSeconds/requestTimeoutSeconds는 선택적 양의 정수다. 각 옵션은 항목별 값, 상위 값, 기본 3초 순서로 적용하며 콤마 확장 후에도 유지한다. Excel PayloadTypes 시트는 두 선택적 timeout 열을 지원하고 빈 셀은 상속한다. 기존 3열 파일과 양방향 변환을 지원한다.

@@ -2,8 +2,8 @@
 endpointUrl: "http://localhost:8080"
 method: "POST"
 curlExecutable: "curl"
-connectTimeoutSeconds: 10
-requestTimeoutSeconds: 60
+connectTimeoutSeconds: 3
+requestTimeoutSeconds: 3
 outputDirectory: "results"
 payloadTypes:
 - contentType: "json"
