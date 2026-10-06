@@ -1,6 +1,6 @@
 # curl HTTP API mock client
 
-Java 21에서 **실제 curl 실행 파일**로 임의의 API 요청 본문을 전송하는 CLI입니다. YAML/Excel 설정 실행, 샘플 생성, 양방향 변환, 트랜잭션별 파일과 Excel 결과 저장을 지원합니다.
+Java 21에서 **실제 curl 실행 파일**로 임의의 API 요청 본문을 전송하는 CLI 및 Swing 애플리케이션입니다. YAML/Excel 설정 실행, 샘플 생성, 양방향 변환, 트랜잭션별 파일과 Excel 결과 저장을 지원합니다. Swing에서는 요청 검색·선택 실행, 파일 내용 팝업과 JSON 응답 pretty 표시를 제공합니다.
 
 ## 환경과 빌드
 
@@ -36,6 +36,21 @@ java -jar target/curl-http-mock-client.jar --yml-to-excel sample.yml --output co
 모드는 한 번에 하나만 지정합니다. 기존 샘플/변환 파일을 덮어쓰려면 `--overwrite`를 명시합니다. 실제 endpoint에 맞게 `endpointUrl`을 수정한 뒤 실행하세요. 샘플은 localhost:8080의 전체 60개 조합입니다. 이 프로그램은 서버를 시작하지 않습니다.
 
 종료 코드: **0** 성공, **1** HTTP/curl 실행 또는 결과 저장 실패, **2** 옵션/설정 오류. 개별 요청 실패는 파일과 결과 행에 기록하고 다음 요청을 실행합니다. 재시도는 하지 않습니다. 리디렉션은 추가 인수에 `--location`을 지정하면 추적합니다. 200~399 응답은 성공으로 분류합니다.
+
+### Swing application mode
+
+```powershell
+java -jar target/curl-http-mock-client.jar --application --config samples/config.yml
+java -jar target/curl-http-mock-client.jar --application --config samples/config.xlsx --curl-arg=--insecure
+```
+
+`--application`은 `--config`와 함께 사용합니다. 왼쪽에는 설정 파일에서 확장된 각 요청이 표시됩니다. 요청을 선택하면 오른쪽 위에 URL, 메서드, 본문 크기, 전송 방식, 적용되는 timeout과 curl 추가 인수가 표시됩니다. **실행** 버튼은 선택한 요청 한 건만 실행합니다. 창을 열거나 목록을 선택하는 것만으로 요청을 전송하지 않습니다.
+
+실행은 백그라운드에서 진행하며 실행 중에는 목록과 버튼을 잠시 비활성화합니다. 오른쪽 아래에 HTTP 상태, curl 종료 코드, 소요 시간, 오류, 요청/응답 헤더와 응답 본문을 표시합니다. 응답 본문은 UTF-8로 최대 64 KiB를 미리보기하며 전체 저장 내용은 응답 본문 파일에서 확인할 수 있습니다. JSON 응답은 들여쓰기한 형식으로 저장·표시합니다. 실행할 때마다 기존 `outputDirectory`에 별도의 결과 Excel과 트랜잭션 파일을 저장합니다. 창을 닫으면 프로그램을 종료하며 진행 중인 요청은 기존 종료 훅으로 중단하고 부분 결과를 저장합니다. 그래픽 데스크톱 환경이 필요합니다.
+
+실행 결과 하단의 **결과 파일** 영역에 결과 Excel, curl 로그, 요청/응답 본문을 **파일 이름 버튼**으로 표시합니다. 파일 이름 앞에는 `[결과 Excel]`, `[curl 로그]`, `[요청 본문]`, `[응답 본문]` 접두사를 붙여 용도를 구분합니다. 버튼을 클릭하면 애플리케이션 팝업에서 파일 내용을 확인할 수 있으며, 전체 경로는 버튼 툴팁으로 확인합니다. 버튼 영역은 결과 텍스트를 스크롤해도 하단에 유지됩니다. 텍스트는 UTF-8로, Excel은 시트명과 셀 값으로 표시하며 큰 파일은 일부 내용만 미리보기합니다. 파일이 삭제되었거나 읽을 수 없으면 팝업에 오류를 표시합니다.
+
+왼쪽 목록 위 **검색** 입력창에 키워드를 입력하면 대소문자 구분 없이 요청 경로의 일치 케이스만 즉시 표시합니다. 공백 또는 콤마로 나눈 **모든 토큰이 포함된 케이스**를 조회합니다. 예: `json gz`, `json,gz`, `json, gz PS_LG`. 토큰 순서는 무관하고 빈 토큰은 무시합니다. 각 토큰의 일치 부분은 노란색으로 강조되며 원래 케이스 번호를 유지합니다. **×** 버튼으로 검색을 취소하면 전체 목록이 복원됩니다. 검색 결과가 없으면 실행 버튼을 비활성화하며, 요청 실행 중에는 검색도 잠시 비활성화합니다.
 
 ### 실행 중 Ctrl-C로 종료
 
@@ -201,7 +216,7 @@ JSON과 XML은 줄바꿈과 2칸 들여쓰기를 사용하는 pretty 형태로 �
 
 실행 단위 UUID와 트랜잭션 UUID는 별개입니다. 날짜는 실행 머신의 로컬 시간입니다. curl 로그에는 인수 배열, stdin 블록 크기, 입력/출력 파일 경로, 실제 verbose 입출력 헤더, stdout, curl 종료 코드, HTTP 상태, 소요 시간과 실패 원인이 들어갑니다. curl rc 설정은 무시합니다. 환경의 proxy 설정과 기본 TLS 인증서 검증은 curl의 기본 동작을 따릅니다.
 
-`request_payload.txt`는 압축 전 entity body이고 GZ의 전송 본문은 `.gz`에 추가 저장합니다. `response_payload.txt`는 curl이 반환한 응답 bytes를 저장하므로 이름이 `.txt`여도 바이너리일 수 있습니다. 기본적으로 응답을 압축 해제하지 않으며, 추가 인수에 `--compressed`를 지정하면 curl이 압축 해제한 응답을 저장합니다.
+`request_payload.txt`는 압축 전 entity body이고 GZ의 전송 본문은 `.gz`에 추가 저장합니다. `response_payload.txt`는 본문 전체가 유효한 JSON이면 객체와 배열을 2칸 들여쓰기한 UTF-8 pretty 형식으로 저장합니다. 실행 결과와 응답 본문 팝업도 저장된 형식으로 표시합니다. Content-Type 헤더와 무관하게 JSON을 판별하며 HTTP 오류 응답의 JSON도 포맷합니다. JSON이 아니거나 파싱할 수 없는 본문, curl 실패/취소 시에는 원래 bytes를 저장하므로 이름이 `.txt`여도 바이너리일 수 있습니다. 기본적으로 응답을 압축 해제하지 않으며, 추가 인수에 `--compressed`를 지정하면 curl이 압축 해제한 응답을 저장합니다.
 
 결과 Excel의 `Results` 시트 열:
 

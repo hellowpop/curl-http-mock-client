@@ -94,7 +94,7 @@ results/
     <transactionUUID>_request_payload.gz  # GZ일 때 실제 전송 본문
 ```
 
-`request_payload.txt`는 압축 전 직렬화 본문이며 GZ의 실제 wire entity bytes는 별도 .gz 파일로 보존한다. `response_payload.txt`는 응답 bytes를 변환하지 않고 보관하므로 바이너리 응답도 손실 없이 저장된다. curl 로그에는 실행 인수, verbose/trace 정보, 표준 출력과 오류, exit code, elapsed time 및 실패 원인을 포함한다. 기록 헤더는 실제 curl 전송/수신 로그와 dump-header에서 추출한다. 중간 응답 헤더도 보존한다.
+`request_payload.txt`는 압축 전 직렬화 본문이며 GZ의 실제 wire entity bytes는 별도 .gz 파일로 보존한다. `response_payload.txt`는 정상 종료한 curl 응답이 유효한 JSON이면 2칸 들여쓰기 형식으로 저장하며, 나머지 본문과 curl 실패/취소 응답은 원래 bytes를 보존한다. curl 로그에는 실행 인수, verbose/trace 정보, 표준 출력과 오류, exit code, elapsed time 및 실패 원인을 포함한다. 기록 헤더는 실제 curl 전송/수신 로그와 dump-header에서 추출한다. 중간 응답 헤더도 보존한다.
 
 결과 시트의 열 순서는 추가 사용자 요청을 반영하여 `uuid`, `endpoint url`, `request body link`, `request header`, `response body link`, `response header`, `http status`, `curl exit code`, `elapsed ms`, `error`, `curl 실행 입출력 log link`로 지정한다. 파일 링크는 결과 Excel의 위치를 기준으로 한 상대 경로로 저장한다. Excel 셀 한도를 초과하는 헤더는 셀에 잘린 표시와 전체 헤더 파일 링크를 제공한다. 외부 응답 문자열은 수식이 아닌 문자열 셀로 기록한다. 결과 파일 저장 실패는 로그와 종료 코드에 명확히 반영한다.
 
@@ -135,6 +135,16 @@ CLI 추가 인수는 설정 파일의 추가 인수 뒤에 입력 순서대로 �
 `ClientConfig`, `ConfigFiles`, `ExcelConfigCodec`, `Main`, `CurlRunner`와 추가 검증 클래스 `CurlArguments`에서 처리한다. 배열이 아닌 값, 문자열이 아닌 원소 및 null 입력은 설정 오류로 처리한다. 인수 개수가 알려진 헤더·인증·프록시·TLS·연결 옵션을 지원 목록으로 관리하며 URL, 본문, timeout, 결과 파일 및 상태 수집을 변경하는 옵션은 거부한다. 본문 관련 헤더 덮어쓰기, 옵션 축약/결합, 헤더 파일 참조, CR/LF/NUL도 거부한다. Excel 빈 셀은 빈 배열이다.
 
 검증 범위: 미지정 설정의 기존 동작, YAML·Excel 양방향 변환, CLI 반복 옵션과 적용 순서, 공백이 포함된 헤더의 실제 curl 전송, 잘못된 입력 및 실행 모드 오류. 기존 timeout·본문 전송·결과 저장 테스트도 함께 확인한다. 최신 실행 결과는 [검증 문서](../../verification.md)에 기록한다.
+
+## Swing application mode 및 JSON 응답 (구현 반영)
+
+`--application --config <YAML/Excel>`로 Swing 창을 연다. 왼쪽에는 설정에서 확장한 케이스 목록과 인라인 검색을, 오른쪽 위에는 선택 요청 요약과 실행 버튼을, 오른쪽 아래에는 실행 결과와 하단 파일 버튼을 배치한다. 실행 버튼은 선택한 케이스만 백그라운드에서 실행하며 기존 Excel/트랜잭션 저장과 종료 시 부분 결과 저장을 재사용한다.
+
+검색은 공백/콤마로 나눈 모든 토큰이 요청 경로에 포함되는 AND 부분 일치이며 대소문자를 구분하지 않는다. 빈/중복 토큰은 무시하고 일치 구간을 강조한다. 원래 번호와 선택을 유지하며 × 버튼으로 전체 목록을 복원한다. 결과 파일 버튼은 `[결과 Excel]`, `[curl 로그]`, `[요청 본문]`, `[응답 본문]` 접두사와 파일 이름을 표시하고 클릭하면 비모달 내용 팝업을 연다. 실행 중 검색/목록/실행 버튼을 비활성화한다.
+
+curl 정상 종료 시 전체 본문이 유효한 JSON이면 객체와 배열을 2칸 들여쓰기한 UTF-8로 저장하며 CLI와 GUI에 공통 적용한다. HTTP 오류의 JSON도 포맷한다. 스트리밍 토큰 처리로 숫자 정밀도와 중복 키를 보존하고 전체 파싱 성공 뒤 파일을 교체한다. JSON이 아닌 본문·불완전한 문서·curl 실패/취소 응답은 원문을 유지한다. 저장된 응답 파일을 결과 화면과 팝업이 읽는다.
+
+현재 구조와 변경 이력의 기준 문서는 [project.md](../../../project.md)이며 검증 결과는 [검증 문서](../../verification.md)에 기록한다.
 
 ## 검증 및 전달 기준
 

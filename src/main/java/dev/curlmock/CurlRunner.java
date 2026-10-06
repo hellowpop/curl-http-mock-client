@@ -121,6 +121,7 @@ final class CurlRunner {
                     .map(line -> line.substring(2)).collect(java.util.stream.Collectors.joining("\n"));
             Files.writeString(requestHeadersFile, requestHeaders, StandardCharsets.UTF_8);
             String responseHeaders = new String(Files.readAllBytes(responseHeadersFile), StandardCharsets.ISO_8859_1);
+            if (exit == 0 && !control.isCancelled()) JsonResponse.format(response);
             Files.writeString(log, "\n--- curl stdout ---\n" + stdout + "\ncurl exit code: " + exit
                     + "\nhttp status: " + status + "\nelapsed ms: " + elapsed + "\nerror: " + error + "\n",
                     StandardCharsets.UTF_8, StandardOpenOption.APPEND);

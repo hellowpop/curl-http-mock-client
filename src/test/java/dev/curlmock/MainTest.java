@@ -14,6 +14,18 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class MainTest {
     @TempDir Path temp;
+    @Test void applicationRequiresConfigAndAcceptsAdditionalCurlArguments() {
+        var command = new CommandLine(new Main());
+        var parsed = command.parseArgs("--application", "--config", "samples/config.yml", "--curl-arg=--insecure");
+        assertTrue(parsed.hasMatchedOption("--application"));
+        var err = new StringWriter();
+        command = new CommandLine(new Main()).setErr(new PrintWriter(err));
+        assertEquals(2, command.execute("--application", "--sample-yml", temp.resolve("app.yml").toString()));
+        assertTrue(err.toString().contains("--application requires --config"));
+        assertFalse(Files.exists(temp.resolve("app.yml")));
+        assertEquals(2, execute("--application", "--config", temp.resolve("missing.yml").toString()));
+    }
+
     @Test void createsSamplesAndConvertsBothDirections() throws Exception {
         Path yaml = temp.resolve("sample.yml");
         Path excel = temp.resolve("sample.xlsx");

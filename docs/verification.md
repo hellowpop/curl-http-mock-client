@@ -4,16 +4,20 @@
 
 ## 자동 테스트
 
-최신 curl 추가 인수 구현의 `mvn verify` 결과: **BUILD SUCCESS**, **157개 테스트 / 실패 0 / 오류 0 / 생략 0**. 실행 로그는 `verification/curl-arguments-verify.log`입니다. 아래 기능별 이력의 테스트 수와 JAR 실행 기록은 각 변경을 검증한 당시의 결과입니다. 검증용 `verification/` 디렉토리는 Git 추적에서 제외합니다.
+최신 Swing application mode 및 JSON 응답 pretty 저장 구현의 `mvn verify` 결과: **BUILD SUCCESS**, **183개 테스트 / 실패 0 / 오류 0 / 생략 0**. 기능 검증 로그는 `verification/application/json-response-verify.log`입니다. 아래 기능별 이력의 테스트 수와 JAR 실행 기록은 각 변경을 검증한 당시의 결과입니다. 검증용 `verification/` 디렉토리는 Git 추적에서 제외합니다. Swing 컴포넌트 동작과 화면 렌더링은 headless 환경에서 검증했으며 실제 데스크톱의 팝업 창 조작은 포함하지 않았습니다.
 
 - 설정 테스트 56개: YAML/Excel 왕복 변환, 경로 보존, 중복/누락/수식/잘못된 값, 숫자 enum과 scalar 자동 변환 거부, 덮어쓰기 보호, 콤마 값 조합/공백/중복/변환/잘못된 토큰, preset과 직접 크기 혼용 및 변환, timeout 기본값과 항목별 값 보존, 잘못된 항목별 timeout 거부, 기존 Excel 3열 호환.
 - payload 테스트 21개: 12개 preset CT/PS 조합과 8개 직접 크기 CT/PS 조합의 정확한 byte 크기와 형식 유효성, 무작위 데이터.
 - payload 크기 파서 테스트 27개: preset, 단위/대소문자 별칭, 바이트 수, 경로 토큰, 최솟값/최댓값, 잘못된 크기 및 곱셈 오버플로 거부.
 - curl 통합 테스트 9개: 실제 curl의 60개 preset CT/TE/PS 조합, gzip 복원, chunked 헤더, 원본 응답, Excel 링크, HTTP 실패 후 계속 실행, timeout/연결 거부/실행 파일 누락, 비 UTF-8 응답 헤더, 콤마 값에서 확장된 8개 요청의 순서와 결과, 20K/1M의 24개 전송 조합, 기본 3초 종료와 항목별 timeout 우선 적용 및 상위 설정 상속.
-- CLI 테스트 4개: 샘플 생성, 양방향 변환, 옵션 오류, 종료 코드, malformed Excel 설정 오류.
+- CLI 테스트 5개: 샘플 생성, 양방향 변환, 옵션 오류, 종료 코드, malformed Excel 설정 오류, application/config 모드 제약.
 - JVM 종료 테스트 2개: 첫 요청 중 중단, 완료 요청 후 중단 시 결과 Excel/중단 행/파일 링크 저장과 이후 요청 중지.
 - 결과 Excel 테스트 1개: 지정된 11개 열 순서와 각 필드의 값/링크/숫자 셀 매핑.
 - curl 추가 인수 테스트 37개: YAML·Excel 변환에서 인수 순서·중복·공백 보존, 설정과 CLI 헤더의 실제 전송, 셸 표현식의 문자 그대로 전달, 잘못된 타입·JSON·옵션 및 충돌하는 헤더 거부, 기본값·Excel 빈 셀·실행 모드 검증.
+- Swing 실행 테스트 2개: 필터링된 요청 한 건 전송, timeout 요약, JSON 응답 pretty 표시, 결과 저장, 실행 실패 후 화면 복원 및 실행 중 검색/버튼 비활성화.
+- 요청 검색 테스트 10개: 공백/콤마 토큰의 AND 조회, 검색 취소, 선택과 번호 유지, 중복 케이스, 결과 없음, 토큰 강조와 겹침 처리.
+- 파일 버튼/팝업 테스트 4개: 의미 접두사·파일명, 버튼 클릭의 경로 전달, 결과 교체 시 초기화, 텍스트/Excel 미리보기와 크기 제한.
+- JSON 응답 테스트 9개: HTTP 오류 응답 pretty 저장, 객체/배열 들여쓰기, 숫자 정밀도·중복 키 보존, JSON이 아닌 본문과 불완전한 문서의 원문 유지.
 
 독립적인 코드 리뷰에서 발견한 입력 자동 변환, 응답 헤더 인코딩, malformed Excel 오류 분류와 빌드 Java 환경 복원 문제를 먼저 재현한 뒤 수정했습니다. 남겨 둔 리뷰 항목은 없습니다.
 
@@ -90,3 +94,53 @@ requestTimeoutSeconds (--max-time)와 connectTimeoutSeconds (--connect-timeout)�
 최종 JAR를 로컬 HTTP 서버에 실행해 JSON/SM의 NA·GZ·CSB 3건 모두 성공했습니다. 서버에서 두 `X-Test` 헤더가 설정값→CLI값 순서로 수신되고, gzip 복원 후 포함한 각 본문이 2,048바이트임을 확인했습니다. 검증 실행 소스는 `verification/CurlArgumentsJarSmoke.java`, 결과는 `verification/curl-arguments-jar/results/20261006_162057_959_d6120a06-9ebc-451d-b10c-b79b7e96894c.xlsx`입니다.
 
 읽기 전용 코드 리뷰에서 Excel 빈 셀의 처리 기준을 확인했습니다. 선택적 설정이므로 빈 셀은 빈 배열로 처리한다는 규칙을 README·project.md와 테스트에 명시했고, 그 밖의 수정이 필요한 주요 사항은 없었습니다.
+
+## Swing application mode (2026-10-06)
+
+전체 160개 테스트가 실패·오류·생략 0건으로 통과했고 Maven verify가 BUILD SUCCESS로 완료되었다. `ApplicationPanelTest`에서 실제 Swing EDT와 로컬 HTTP 서버/curl을 사용하여 요청 선택, 항목별 timeout 요약, 선택한 XML/GZ 요청 한 건만 전송, 응답 표시, 결과 Excel 생성, 실행 중 중복 실행 방지, 파일 저장 오류 후 화면 복원을 검증했다. `MainTest`에서 옵션 인식, curl 추가 인수 병행, 설정 필수 및 샘플 모드 충돌을 검증했다.
+
+최종 JAR의 `--help`에 `--application`이 표시되며, headless 환경에서 application 실행 시 명확한 오류와 종료 코드 1을 반환한다. Swing 패널을 1130×720 이미지로 렌더링하고 왼쪽 목록·오른쪽 위 요약과 실행 버튼·오른쪽 아래 결과 배치를 확인했다. 실제 데스크톱의 창 조작은 이번 검증에 포함하지 않았다.
+
+검증 명령은 Java 21 및 기존 Maven settings를 사용했다. Windows 임시 폴더 정리 권한 문제를 피하려고 TEMP/TMP와 테스트 JVM의 `java.io.tmpdir`를 프로젝트의 `target/application-tmp`로 지정했다. 로그는 `verification/application/verify.log`, 렌더링 소스와 화면은 `verification/application/ApplicationPreview.java` 및 `verification/application/preview.png`에 보관했다. Maven shade의 기존 중복 리소스 경고는 계속 표시된다.
+
+## 실행 결과 파일 링크/팝업 (2026-10-06)
+
+전체 163개 테스트가 실패·오류·생략 0건으로 통과했고 Maven verify가 BUILD SUCCESS로 완료되었다. `ResultFileLinksTest`에서 실제 Swing 문서의 파일 경로 위치를 마우스로 클릭해 한글·공백·특수문자가 있는 정확한 Path가 열기 동작에 전달되는 것을 확인했다. 텍스트의 HTML 태그가 원문으로 표시되고, 1 MiB 미리보기 제한과 없는 파일의 읽기 실패, 여러 Excel 시트와 셀 값의 표시를 검증했다. 기존 ApplicationPanel의 실제 curl 요청/응답/결과 저장 테스트도 통과했다.
+
+파일 링크가 파란 밑줄로 표시되는 결과 패널을 이미지로 렌더링하여 확인했다. 실제 데스크톱에서 팝업 창 조작은 이번 headless 검증에 포함하지 않았다. 로그: `verification/application/file-links-verify.log`, 렌더링: `verification/application/file-links-preview.png`.
+
+## 요청 목록 인라인 검색 (2026-10-06)
+
+전체 167개 테스트가 실패·오류·생략 0건으로 통과했고 Maven verify가 BUILD SUCCESS로 완료되었다. `RequestSearchTest`는 대소문자 무시/앞뒤 공백 제거/리터럴 부분 일치, 입력 즉시 필터링, × 취소 후 전체 복원, 검색 결과 없음과 실행 비활성화, 원래 번호·선택·기존 결과 유지, 동일한 설정의 중복 케이스 선택을 검증했다. 렌더러를 실제 이미지에 그려 일반 행과 선택된 행의 노란 강조 표시 및 검색 취소 후 강조 제거를 확인했다.
+
+기존 로컬 서버/curl 통합 테스트를 검색된 XML/GZ 케이스에서 실행하도록 확장해 필터링 후 정확한 요청 한 건 전송, 실행 중 검색/취소 비활성화 및 완료 후 복원을 검증했다. 최종 JAR에 RequestListRenderer가 포함되는 것을 확인했다. 검색창·× 버튼·결과 수·키워드 강조의 화면 배치를 Swing 패널 이미지로 검증했으며 실제 데스크톱 조작은 포함하지 않았다.
+
+로그: `verification/application/search-verify.log`, 렌더링: `verification/application/search-preview.png`.
+
+## 공백/콤마 검색 토큰 AND 조회 (2026-10-06)
+
+전체 173개 테스트가 실패·오류·생략 0건으로 통과했고 Maven verify가 BUILD SUCCESS로 완료되었다. RequestSearchTest는 공백/콤마/혼합 구분자, 대소문자 무시, 토큰 순서 무관, 모든 토큰이 포함되어야 조회되는 AND 조건, 없는 토큰 추가 시 결과 없음, 구분자만 입력 시 전체 조회를 검증했다. 이미지 픽셀 검사로 모든 토큰의 강조 및 중복/겹치는 토큰의 강조 병합을 확인했다. 여러 토큰이 강조되는 화면도 Swing 이미지로 렌더링해 확인했다.
+
+로그: `verification/application/search-tokens-verify.log`, 렌더링: `verification/application/search-tokens-preview.png`.
+
+## 실행 결과 하단 파일 이름 버튼 (2026-10-06)
+
+전체 174개 테스트가 실패·오류·생략 0건으로 통과했고 Maven verify가 BUILD SUCCESS로 완료되었다. ResultFileLinksTest의 기존 링크 클릭 테스트를 파일 이름 버튼 클릭으로 변경하고, 네 가지 결과 파일의 버튼 이름/정확한 Path 전달/전체 경로 툴팁, 결과 교체 후 이전 버튼 제거, 트랜잭션이 없는 중단 결과의 Excel 버튼만 표시를 검증했다. 기존 텍스트/Excel 팝업 파일 읽기 테스트와 검색/실행 통합 테스트도 통과했다.
+
+결과 텍스트와 하단 고정 버튼 영역을 Swing 이미지로 렌더링하여 확인했다. 실제 데스크톱에서 팝업 조작은 이번 headless 검증에 포함하지 않았다. 로그: `verification/application/file-buttons-verify.log`, 렌더링: `verification/application/file-buttons-preview.png`.
+
+## 파일 버튼 의미 접두사 (2026-10-06)
+
+파일 이름 버튼을 `[결과 Excel] 파일명`, `[curl 로그] 파일명`, `[요청 본문] 파일명`, `[응답 본문] 파일명`으로 표시한다. 전체 174개 테스트가 실패·오류·생략 0건으로 통과했고 Maven verify가 BUILD SUCCESS로 완료되었다. 기존 버튼 테스트에서 네 가지 접두사 및 버튼 클릭 시 정확한 파일 경로 전달을 확인했다. 렌더링 이미지로 하단 버튼의 한글 접두사 표시도 확인했다.
+
+로그: `verification/application/file-prefix-verify.log`, 렌더링: `verification/application/file-prefix-preview.png`.
+
+## JSON 응답 pretty 저장/표시 (2026-10-06)
+
+전체 183개 테스트가 실패·오류·생략 0건으로 통과했고 Maven verify가 BUILD SUCCESS로 완료되었다. JsonResponseTest는 실제 curl로 XML 요청에 대한 Content-Type 미지정 HTTP 422 JSON 응답을 받아 객체/배열 들여쓰기 저장, 한글 보존 및 팝업의 동일한 표시를 확인했다. 일반 텍스트·HTML·빈 본문·불완전한 JSON·trailing bytes·복수 JSON 문서·바이너리의 원문 보존과 긴 정수/소수 정밀도·지수 표현·중복 키 보존을 검증했다. 기존 Swing 통합 테스트는 검색된 요청의 JSON 응답이 실행 결과에도 들여쓰기되어 표시되는 것을 확인한다.
+
+로그: `verification/application/json-response-verify.log`. JSON 포맷은 HTTP 상태 분류를 바꾸지 않으며 curl 실패/취소 응답에는 적용하지 않는다.
+
+## 문서 통합 및 푸시 전 최종 검증 (2026-10-06)
+
+README, project.md, 설계 문서, CHANGELOG, 진행 기록과 검증 요약을 최신 Swing/검색/파일 버튼/JSON 응답 동작에 맞췄다. 푸시 전 Java 21 Maven verify를 다시 실행하여 전체 183개 테스트의 실패·오류·생략 0건과 BUILD SUCCESS를 확인했다. 최종 로그는 `verification/application/docs-push-verify.log`이다. 코드와 문서만 Git에 반영하며 JAR, 로컬 캐시와 검증 생성물은 기존 ignore 규칙을 유지한다.

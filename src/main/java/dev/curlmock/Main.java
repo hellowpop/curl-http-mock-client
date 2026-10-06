@@ -12,6 +12,7 @@ public final class Main implements Callable<Integer> {
     @ArgGroup(exclusive = true, multiplicity = "1") private Mode mode;
     @Option(names = "--output", description = "Conversion destination (.yml/.yaml/.xlsx).") private Path output;
     @Option(names = "--overwrite", description = "Replace an existing sample or converted configuration.") private boolean overwrite;
+    @Option(names = "--application", description = "Open the Swing application; requires --config.") private boolean application;
     @Option(names = "--curl-arg", paramLabel = "ARG", description = "Append one curl argument (repeatable, run mode only; use --curl-arg=ARG).")
     private java.util.List<String> curlArguments = new java.util.ArrayList<>();
     @Spec private Model.CommandSpec spec;
@@ -24,12 +25,18 @@ public final class Main implements Callable<Integer> {
         @Option(names = "--yml-to-excel", description = "Convert YAML configuration to Excel; requires --output.") Path ymlToExcel;
     }
 
-    public static void main(String[] args) { System.exit(new CommandLine(new Main()).execute(args)); }
+    public static void main(String[] args) {
+        var main = new Main();
+        int exit = new CommandLine(main).execute(args);
+        // Keep the Swing event thread alive after the window has been opened.
+        if (!main.application || exit != 0) System.exit(exit);
+    }
 
     @Override public Integer call() {
         ClientConfig config;
         try {
             boolean conversion = mode.excelToYml != null || mode.ymlToExcel != null;
+            if (application && mode.config == null) throw new IllegalArgumentException("--application requires --config");
             if (mode.config == null && !curlArguments.isEmpty()) throw new IllegalArgumentException("--curl-arg is only valid with --config");
             if (conversion && output == null) throw new IllegalArgumentException("Conversion requires --output");
             if (!conversion && output != null) throw new IllegalArgumentException("--output is only valid for conversion");
@@ -59,6 +66,10 @@ public final class Main implements Callable<Integer> {
             return 2;
         }
         try {
+            if (application) {
+                ApplicationPanel.open(config);
+                return 0;
+            }
             var run = new BatchExecutor().run(config);
             spec.commandLine().getOut().println("Results: " + run.workbook());
             spec.commandLine().getOut().println("Artifacts: " + run.artifactsDirectory());
