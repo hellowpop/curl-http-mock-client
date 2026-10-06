@@ -11,6 +11,29 @@ import org.junit.jupiter.params.provider.ValueSource;
 import static org.junit.jupiter.api.Assertions.*;
 
 class RequestSearchTest {
+    @Test void filteredBatchButtonRequiresSearchResultsAndFooterButtonsAlignRight() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            var panel = new ApplicationPanel(config());
+            assertFalse(panel.executeFiltered.isEnabled());
+            panel.search.setText("json");
+            assertTrue(panel.executeFiltered.isEnabled());
+            panel.search.setText("json,missing");
+            assertFalse(panel.executeFiltered.isEnabled());
+            panel.search.setText(" , \t ");
+            assertFalse(panel.executeFiltered.isEnabled());
+            panel.search.setText("gz");
+            assertTrue(panel.executeFiltered.isEnabled());
+            panel.clearSearch.doClick();
+            assertFalse(panel.executeFiltered.isEnabled());
+            var footer = panel.executeAll.getParent();
+            assertSame(footer, panel.executeFiltered.getParent());
+            footer.setSize(330, 40);
+            footer.doLayout();
+            assertTrue(panel.executeFiltered.getX() < panel.executeAll.getX());
+            assertEquals(325, panel.executeAll.getX() + panel.executeAll.getWidth());
+        });
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"json gz", " JSON, GZ ", "gz,, \tjson", "gz json"})
     void allSpaceOrCommaSeparatedTokensMustMatch(String query) throws Exception {

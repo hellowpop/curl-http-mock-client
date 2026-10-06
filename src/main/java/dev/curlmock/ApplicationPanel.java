@@ -24,6 +24,8 @@ final class ApplicationPanel extends JPanel {
     final JTextArea summary = textArea();
     final ResultPane result = new ResultPane(path -> FileContentPopup.open(this, path));
     final JButton execute = new JButton("실행");
+    final JButton executeAll = new JButton("전체실행");
+    final JButton executeFiltered = new JButton("선택실행");
     final JTextField search = new JTextField();
     final JButton clearSearch = new JButton("×");
     private final JLabel filterStatus = new JLabel();
@@ -56,6 +58,12 @@ final class ApplicationPanel extends JPanel {
         searchArea.add(filterStatus, BorderLayout.SOUTH);
         filterStatus.setText(config.payloadTypes().size() + " / " + config.payloadTypes().size() + " 케이스");
         left.add(searchArea, BorderLayout.NORTH);
+        var batchButtons = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.RIGHT));
+        executeFiltered.setEnabled(false);
+        executeFiltered.setToolTipText("현재 검색 결과에 표시된 케이스 모두 실행");
+        batchButtons.add(executeFiltered);
+        batchButtons.add(executeAll);
+        left.add(batchButtons, BorderLayout.SOUTH);
         left.setMinimumSize(new Dimension(220, 100));
         var top = section("실행 요약", new JScrollPane(summary));
         var buttons = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.RIGHT));
@@ -81,6 +89,8 @@ final class ApplicationPanel extends JPanel {
             search.requestFocusInWindow();
         });
         execute.addActionListener(event -> runSelected());
+        executeAll.addActionListener(event -> runBatch(false));
+        executeFiltered.addActionListener(event -> runBatch(true));
         requests.setSelectedIndex(0);
     }
 
@@ -107,6 +117,7 @@ final class ApplicationPanel extends JPanel {
                     visibleIndices.size() + " / " + config.payloadTypes().size() + " 케이스");
             int current = requests.getSelectedIndex() < 0 ? -1 : visibleIndices.get(requests.getSelectedIndex());
             if (current != selected || current < 0) showSelection();
+            updateFilteredButton();
         } finally { filtering = false; }
     }
 
@@ -151,10 +162,7 @@ final class ApplicationPanel extends JPanel {
     private void runSelected() {
         var type = requests.getSelectedValue();
         if (type == null || !execute.isEnabled()) return;
-        execute.setEnabled(false);
-        requests.setEnabled(false);
-        search.setEnabled(false);
-        clearSearch.setEnabled(false);
+        setRunning(true);
         result.setText("실행 중…\n" + type.path());
         var selected = new ClientConfig(config.endpointUrl(), config.method(), config.curlExecutable(),
                 config.connectTimeoutSeconds(), config.requestTimeoutSeconds(), config.outputDirectory(),
@@ -176,13 +184,57 @@ final class ApplicationPanel extends JPanel {
                     result.setText("Execution error: " + e.getCause().getMessage());
                 } finally {
                     result.setCaretPosition(0);
-                    requests.setEnabled(true);
-                    search.setEnabled(true);
-                    clearSearch.setEnabled(!search.getText().isEmpty());
-                    execute.setEnabled(requests.getSelectedValue() != null);
+                    setRunning(false);
                 }
             }
         }.execute();
+    }
+
+    private void setRunning(boolean running) {
+        requests.setEnabled(!running);
+        search.setEnabled(!running);
+        clearSearch.setEnabled(!running && !search.getText().isEmpty());
+        execute.setEnabled(!running && requests.getSelectedValue() != null);
+        executeAll.setEnabled(!running);
+        updateFilteredButton();
+    }
+
+    private void updateFilteredButton() {
+        executeFiltered.setEnabled(search.isEnabled() && !RequestSearch.tokens(search.getText()).isEmpty()
+                && !visibleIndices.isEmpty());
+    }
+
+    BatchProgressPanel createBatch(boolean filtered) {
+        if (!filtered) return new BatchProgressPanel(config);
+        if (RequestSearch.tokens(search.getText()).isEmpty() || visibleIndices.isEmpty())
+            throw new IllegalStateException("선택실행에는 검색 결과가 필요합니다.");
+        var types = visibleIndices.stream().map(config.payloadTypes()::get).toList();
+        var selected = new ClientConfig(config.endpointUrl(), config.method(), config.curlExecutable(),
+                config.connectTimeoutSeconds(), config.requestTimeoutSeconds(), config.outputDirectory(),
+                types, config.curlArguments());
+        return new BatchProgressPanel(selected, "선택실행", null);
+    }
+
+    private void runBatch(boolean filtered) {
+        if (!(filtered ? executeFiltered : executeAll).isEnabled()) return;
+        var panel = createBatch(filtered);
+        setRunning(true);
+        try {
+            var dialog = new JDialog(SwingUtilities.getWindowAncestor(this), filtered ? "선택실행" : "전체실행",
+                    java.awt.Dialog.ModalityType.APPLICATION_MODAL);
+            dialog.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
+            dialog.addWindowListener(new java.awt.event.WindowAdapter() {
+                @Override public void windowClosing(java.awt.event.WindowEvent event) {
+                    if (panel.close.isEnabled()) dialog.dispose();
+                }
+            });
+            panel.close.addActionListener(event -> dialog.dispose());
+            dialog.setContentPane(panel);
+            dialog.setSize(950, 650);
+            dialog.setLocationRelativeTo(this);
+            panel.start();
+            dialog.setVisible(true);
+        } finally { setRunning(false); }
     }
 
     private record RunDisplay(BatchExecutor.RunResult run, String preview) {}

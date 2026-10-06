@@ -7,7 +7,8 @@ Java 21 CLI 또는 `--application` Swing 화면에서 외부 curl 프로세스�
 | 구성 요소 | 역할 |
 |---|---|
 | `Main` | picocli 옵션, 실행/샘플/변환 모드, 종료 코드 |
-| `ApplicationPanel` | Swing 요청 목록, 선택 요약, 비동기 단건 실행 및 결과 표시 |
+| `ApplicationPanel` | Swing 요청 검색·선택 요약, 비동기 단건 실행, 전체/검색 결과 실행 모달 연결 및 결과 표시 |
+| `BatchProgressPanel` | 모달 전체/선택실행 팝업의 실시간 실행 로그, 완료 요약, 결과 Excel 보기 |
 | `RequestListRenderer` | 원래 케이스 번호 유지, 검색어 일치 부분 강조 |
 | `RequestSearch` | 공백/콤마 검색 토큰 분리 규칙 공유 |
 | `ResultPane`, `FileContentPopup` | 결과 하단 파일 이름 버튼, 비동기 텍스트/Excel 내용 팝업 |
@@ -28,6 +29,14 @@ Java 21 CLI 또는 `--application` Swing 화면에서 외부 curl 프로세스�
 `ApplicationPanel`은 수평 `JSplitPane`의 왼쪽에 단일 선택 `JList`를, 오른쪽 수직 `JSplitPane`에 요약과 결과를 배치한다. 설정에서 확장된 요청을 순서대로 모두 표시하며 첫 항목을 기본 선택한다. 요약은 항목별 timeout의 상위 설정 상속까지 반영한다.
 
 실행 버튼은 선택 항목 하나로 구성한 `ClientConfig`를 `SwingWorker`에서 `BatchExecutor`에 전달한다. 네트워크/파일 작업은 백그라운드에서 진행하고 화면 갱신은 EDT에서 처리한다. 실행 중에는 목록과 버튼을 비활성화하여 중복 실행을 방지하며 성공/실패 뒤 복원한다. Excel, 요청/응답 파일, curl 로그 및 종료 시 부분 결과 저장은 기존 실행 경로를 재사용한다. 응답 미리보기는 최대 64 KiB로 제한한다.
+
+### 목록 전체실행과 선택실행
+
+목록 하단 `전체실행` 버튼은 설정된 전체 케이스를 원래 순서대로 실행한다. 검색 상태와 관계없이 전체 설정을 전달한다. `ApplicationPanel`은 `APPLICATION_MODAL` JDialog를 열고 `BatchProgressPanel`의 `SwingWorker`를 시작한다. 실행 중 단건/선택/전체실행과 검색/목록을 비활성화하고 팝업 종료 시 복원한다. 팝업은 실행 중 닫기를 비활성화하며 완료 또는 실행 오류 후 닫을 수 있다.
+
+목록 하단에는 `선택실행`, `전체실행` 버튼을 이 순서로 오른쪽 정렬한다. `선택실행`은 유효한 검색 토큰이 있고 결과 목록이 비어 있지 않을 때 활성화한다. 검색 결과에 표시된 모든 케이스를 실행하며 하나의 행 선택과는 독립적이다. `createBatch(true)`는 원본 인덱스로 필터된 목록을 실행 시작 시 복사하여 원래 순서와 중복 케이스, 개별 timeout과 공통 curl 인수를 유지한다. 같은 모달 진행 화면에 선택실행 제목·로그·완료 요약을 표시하며 목록 완료 및 결과 저장 후 결과파일 보기 버튼을 노출한다. 검색 취소/구분자만 입력/결과 없음/실행 중에는 선택실행을 비활성화한다.
+
+`BatchExecutor.run(config, Consumer<String>)`는 기존 실행 흐름에서 시작, 케이스 실행/완료(HTTP 상태·curl 종료 코드·소요 시간·오류), workbook 저장 이벤트를 전달한다. 기존 `run(config)` 호출은 같은 실행 흐름을 유지한다. 패널은 publish/process로 EDT에 로그를 출력하고 자동 스크롤한다. HTTP/curl 개별 요청 실패 후 다음 케이스를 계속 실행하며 전체 완료와 결과 저장 후 성공/실패 건수를 표시하고 `결과파일 보기` 버튼을 노출한다. 버튼은 결과 Excel을 기존 내용 팝업에서 연다. 초기 설정/파일 저장 실패로 실행이 완료되지 못하면 오류 로그를 표시한다.
 
 ### 요청 목록 인라인 검색
 
@@ -108,3 +117,7 @@ java -jar target/curl-http-mock-client.jar --config samples/config.yml --curl-ar
 - 2026-10-06: 결과 파일 버튼 이름 앞에 파일 의미 접두사(결과 Excel/curl 로그/요청 본문/응답 본문)를 추가했다. 버튼 클릭 팝업과 실제 파일 경로 전달은 유지한다.
 
 - 2026-10-06: JsonResponse를 추가하여 CurlRunner에서 JSON 응답을 pretty 형식으로 저장한다. 스트리밍 임시 파일 교체로 불완전한 JSON의 원문을 보존하며, ApplicationPanel과 팝업은 저장 파일의 포맷을 그대로 표시한다. JsonResponseTest와 Swing 통합 테스트에 응답 저장/표시 검증을 추가했다.
+
+- 2026-10-06: 목록 하단 전체실행 버튼과 BatchProgressPanel 모달 실행 화면을 추가했다. BatchExecutor에 진행 이벤트 전달 오버로드를 추가하여 실시간 로그를 표시하고 완료 후 결과 Excel 보기 버튼을 제공한다. 단건/전체 실행의 UI 비활성화는 setRunning에서 공유한다.
+
+- 2026-10-06: 목록 하단 버튼을 선택실행/전체실행 순서로 오른쪽 정렬했다. createBatch에서 전체 또는 필터 결과 설정을 생성하여 모달 실행 흐름을 공유하고 BatchProgressPanel이 실행 모드에 맞는 제목/시작/완료 로그를 표시한다. RequestSearchTest와 BatchProgressPanelTest에서 활성화 조건, 정렬, 검색된 케이스 전송 및 결과 저장을 검증한다.

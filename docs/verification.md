@@ -4,7 +4,7 @@
 
 ## 자동 테스트
 
-최신 Swing application mode 및 JSON 응답 pretty 저장 구현의 `mvn verify` 결과: **BUILD SUCCESS**, **183개 테스트 / 실패 0 / 오류 0 / 생략 0**. 기능 검증 로그는 `verification/application/json-response-verify.log`입니다. 아래 기능별 이력의 테스트 수와 JAR 실행 기록은 각 변경을 검증한 당시의 결과입니다. 검증용 `verification/` 디렉토리는 Git 추적에서 제외합니다. Swing 컴포넌트 동작과 화면 렌더링은 headless 환경에서 검증했으며 실제 데스크톱의 팝업 창 조작은 포함하지 않았습니다.
+최신 Swing 전체/선택실행 및 JSON 응답 pretty 저장 구현의 `mvn verify` 결과: **BUILD SUCCESS**, **187개 테스트 / 실패 0 / 오류 0 / 생략 0**. 기능 검증 로그는 `verification/application/filtered-batch-verify.log`입니다. 아래 기능별 이력의 테스트 수와 JAR 실행 기록은 각 변경을 검증한 당시의 결과입니다. 검증용 `verification/` 디렉토리는 Git 추적에서 제외합니다. Swing 컴포넌트 동작과 화면 렌더링은 headless 환경에서 검증했으며 실제 데스크톱의 팝업 창 조작은 포함하지 않았습니다.
 
 - 설정 테스트 56개: YAML/Excel 왕복 변환, 경로 보존, 중복/누락/수식/잘못된 값, 숫자 enum과 scalar 자동 변환 거부, 덮어쓰기 보호, 콤마 값 조합/공백/중복/변환/잘못된 토큰, preset과 직접 크기 혼용 및 변환, timeout 기본값과 항목별 값 보존, 잘못된 항목별 timeout 거부, 기존 Excel 3열 호환.
 - payload 테스트 21개: 12개 preset CT/PS 조합과 8개 직접 크기 CT/PS 조합의 정확한 byte 크기와 형식 유효성, 무작위 데이터.
@@ -15,9 +15,10 @@
 - 결과 Excel 테스트 1개: 지정된 11개 열 순서와 각 필드의 값/링크/숫자 셀 매핑.
 - curl 추가 인수 테스트 37개: YAML·Excel 변환에서 인수 순서·중복·공백 보존, 설정과 CLI 헤더의 실제 전송, 셸 표현식의 문자 그대로 전달, 잘못된 타입·JSON·옵션 및 충돌하는 헤더 거부, 기본값·Excel 빈 셀·실행 모드 검증.
 - Swing 실행 테스트 2개: 필터링된 요청 한 건 전송, timeout 요약, JSON 응답 pretty 표시, 결과 저장, 실행 실패 후 화면 복원 및 실행 중 검색/버튼 비활성화.
-- 요청 검색 테스트 10개: 공백/콤마 토큰의 AND 조회, 검색 취소, 선택과 번호 유지, 중복 케이스, 결과 없음, 토큰 강조와 겹침 처리.
+- 요청 검색 테스트 11개: 공백/콤마 토큰의 AND 조회, 검색 취소, 선택과 번호 유지, 중복 케이스, 결과 없음, 토큰 강조와 겹침 처리, 선택실행 활성화 조건과 하단 버튼 오른쪽 정렬.
 - 파일 버튼/팝업 테스트 4개: 의미 접두사·파일명, 버튼 클릭의 경로 전달, 결과 교체 시 초기화, 텍스트/Excel 미리보기와 크기 제한.
 - JSON 응답 테스트 9개: HTTP 오류 응답 pretty 저장, 객체/배열 들여쓰기, 숫자 정밀도·중복 키 보존, JSON이 아닌 본문과 불완전한 문서의 원문 유지.
+- 전체/선택실행 테스트 3개: 모든 케이스의 순차 실행, HTTP 실패 후 계속 실행, 진행 로그·완료 요약·결과 버튼과 Excel 행, 중복 시작 방지, 초기 실행 오류 처리, 검색 결과만 중복과 순서를 보존하여 실행하고 curl 추가 인수를 전달.
 
 독립적인 코드 리뷰에서 발견한 입력 자동 변환, 응답 헤더 인코딩, malformed Excel 오류 분류와 빌드 Java 환경 복원 문제를 먼저 재현한 뒤 수정했습니다. 남겨 둔 리뷰 항목은 없습니다.
 
@@ -144,3 +145,19 @@ requestTimeoutSeconds (--max-time)와 connectTimeoutSeconds (--connect-timeout)�
 ## 문서 통합 및 푸시 전 최종 검증 (2026-10-06)
 
 README, project.md, 설계 문서, CHANGELOG, 진행 기록과 검증 요약을 최신 Swing/검색/파일 버튼/JSON 응답 동작에 맞췄다. 푸시 전 Java 21 Maven verify를 다시 실행하여 전체 183개 테스트의 실패·오류·생략 0건과 BUILD SUCCESS를 확인했다. 최종 로그는 `verification/application/docs-push-verify.log`이다. 코드와 문서만 Git에 반영하며 JAR, 로컬 캐시와 검증 생성물은 기존 ignore 규칙을 유지한다.
+
+## 목록 전체실행 및 모달 실행 로그 (2026-10-06)
+
+전체 185개 테스트가 실패·오류·생략 0건으로 통과했고 Maven verify가 BUILD SUCCESS로 완료되었다. BatchProgressPanelTest에서 전체 설정의 두 케이스를 실제 curl로 순차 실행하고 첫 HTTP 503 실패 뒤 다음 요청이 성공하는 것을 확인했다. 시작/요청별 상태/오류/진행 수/결과 저장 로그, 성공·실패 요약, 실행 중 닫기 비활성화, 전체 완료 후 결과파일 버튼과 올바른 Excel 경로/행 수, 중복 시작 방지, 초기 저장 경로 오류 후 닫기 복원을 검증했다. 단건 실행 중 전체실행 버튼의 비활성화 및 완료 후 복원도 확인했다.
+
+실제 로컬 서버로 BatchProgressPanel을 실행한 뒤 완료 로그와 결과파일 보기 버튼을 Swing 이미지로 렌더링하여 확인했다. 모달 창과 자식 파일 팝업의 실제 데스크톱 조작은 headless 환경에서 검증하지 않았다. 로그: `verification/application/batch-verify.log`, 렌더링: `verification/application/batch-preview.png`.
+
+## 검색 목록 선택실행 (2026-10-06)
+
+전체 187개 테스트가 실패·오류·생략 0건으로 통과했고 Maven verify가 BUILD SUCCESS로 완료되었다. 검색 토큰과 결과가 있을 때만 선택실행이 활성화되고, 검색 취소·구분자만 입력·결과 없음·실행 중에는 비활성화되는 것을 확인했다. 하단 버튼은 선택실행, 전체실행 순서로 오른쪽에 정렬된다. 실제 curl 통합 테스트에서 검색 결과의 중복 JSON 케이스 두 건만 원래 순서로 실행하고 제외된 XML 케이스를 전송하지 않는 것을 확인했다. 추가 헤더 전달, 완료 로그, 결과파일 보기 버튼과 Excel 행 수도 검증했다.
+
+로그: `verification/application/filtered-batch-verify.log`, 렌더링: `verification/application/filtered-batch-buttons-preview.png`. 실제 데스크톱 모달 창 조작은 검증하지 않았다.
+
+## 전체/선택실행 문서 정리 및 푸시 전 검증 (2026-10-06)
+
+README에 단건·검색 결과·전체 실행의 버튼 위치, 실행 대상과 결과 확인 방식 비교표를 추가했다. project.md의 구성 요소와 실행 중 비활성화 설명, 설계 문서와 CHANGELOG를 현재 구현에 맞췄다. Java 21 Maven verify를 다시 실행하여 전체 187개 테스트의 실패·오류·생략 0건 및 BUILD SUCCESS를 확인했다. 로그: `verification/application/batch-docs-push-verify.log`. JAR와 테스트 생성물은 Git 추적에서 제외한다.

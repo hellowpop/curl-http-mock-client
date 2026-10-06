@@ -62,6 +62,8 @@ class ApplicationPanelTest {
                 panel.execute.doClick();
                 assertFalse(panel.execute.isEnabled());
                 assertFalse(panel.requests.isEnabled());
+                assertFalse(panel.executeAll.isEnabled());
+                assertFalse(panel.executeFiltered.isEnabled());
                 assertFalse(panel.search.isEnabled());
                 assertFalse(panel.clearSearch.isEnabled());
             });
@@ -71,6 +73,8 @@ class ApplicationPanelTest {
                 assertTrue(holder[0].result.getText().contains("selected response"));
                 assertTrue(holder[0].result.getText().contains("\n  \"message\""));
                 assertTrue(holder[0].requests.isEnabled());
+                assertTrue(holder[0].executeAll.isEnabled());
+                assertTrue(holder[0].executeFiltered.isEnabled());
                 assertTrue(holder[0].search.isEnabled());
                 assertTrue(holder[0].clearSearch.isEnabled());
             });
