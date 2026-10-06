@@ -2,7 +2,7 @@
 
 User instruction: proceed with the best design without questions. This overrides skill approval handoffs.
 
-Workspace: supplied empty non-Git project; worktree and Git-based task scripts do not apply. Java 21 is available at D:/01.app/java/jdk-21.0.3.
+Initial workspace: supplied empty non-Git project; worktree and Git-based task scripts did not apply during initial implementation. The project is now tracked in Git on master and pushed to the user-specified GitHub repository. Java 21 is available at D:/01.app/java/jdk-21.0.3.
 
 Pre-flight: task 1 produces ClientConfig/Payload; task 2 consumes ClientConfig; task 3 consumes model/Payload; task 4 consumes ConfigFiles/BatchExecutor. Signatures agree with spec.
 
@@ -46,3 +46,15 @@ Design: immutable PayloadSize with legacy SM/CM/LG constants and Jackson scalar 
 RED: 21 missing direct-size cases reproduced (custom-sizes-red.log).
 GREEN: parsing aliases/bounds/overflow, eight exact CT/direct-size payloads, config preset/custom mixes and both format conversions, and actual curl24-case custom-size integration pass.
 Final verification: Maven verify BUILD SUCCESS, 107 tests, zero failures/errors/skips. Final JAR 24/24 successful transactions, 20K/1M request files exactly 20,480/1,048,576 bytes, YAML→Excel→YAML preserves24 records. Read-only review: no actionable findings. Added samples/config-custom-sizes.yml; README/spec/verification updated.
+
+Follow-up: curl timeout default and per-payload overrides.
+Design: global connectTimeoutSeconds/requestTimeoutSeconds default to 3 seconds. Optional per-entry values override each global value independently. CSV expansion and format conversion preserve overrides and omissions. Excel supports two optional timeout columns and legacy three-column sheets. Curl arguments and process wait use the resolved per-entry request timeout.
+RED: default tests showed the old 60-second value and delayed requests succeeded; per-entry test rejected the unsupported timeout property.
+GREEN: defaults, explicit values, YAML/Excel round-trips, legacy Excel, invalid per-entry timeout values, actual curl timeouts and global inheritance pass.
+Final verification: Maven verify BUILD SUCCESS, 120 tests, zero failures/errors/skips. Default curl timeout occurred at about 3.05 seconds; per-entry 1-second limits exited with code 28 while the following inherited 4-second request succeeded. Final JAR converted the per-payload sample in both directions and regenerated the Excel sample. Commit 40a0071 was pushed to origin/master and remote HEAD was confirmed equal to local HEAD.
+Documentation follow-up: README now includes timeout precedence and YAML/Excel examples; CHANGELOG records compatibility and previous/new defaults; spec and latest verification summary agree with current implementation and test reports.
+
+Documentation follow-up (2026-10-06): recorded the proposed curl extra-argument feature in the design spec, including YAML curlArguments, Excel Settings JSON-array representation, repeated CLI --curl-arg, merge order, affected components and planned validation. Status: design draft only; no implementation or new test results. Conflicts with application-managed curl options still require a defined rule before implementation.
+
+Follow-up implementation (2026-10-06): completed curlArguments in YAML/Excel and repeated run-only --curl-arg, preserving order and appending CLI values after file values. CurlArguments validates supported options with known arity; rejects managed URL/body/timeout/artifact changes, payload header overrides and malformed tokens. Optional Excel blank means []; nonblank values require strict JSON arrays. Added project.md per AGENTS.md, README examples, samples and changelog.
+RED: existing implementation rejected curlArguments and --curl-arg; new round-trip and real-header tests failed. GREEN: all 37 new tests pass. Final Java 21 Maven verify: BUILD SUCCESS, 157 tests, no failures/errors/skips. Final JAR smoke: 3/3 NA/GZ/CSB requests, both config/CLI headers in order, all bodies 2048 bytes after gzip decompression. Read-only review clarified intentional Excel blank-as-empty behavior; no unresolved material findings.

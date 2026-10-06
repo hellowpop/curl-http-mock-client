@@ -4,19 +4,20 @@
 
 ## 자동 테스트
 
-`mvn verify` 결과: **BUILD SUCCESS**, **107개 테스트 / 실패 0 / 오류 0 / 생략 0**.
+최신 curl 추가 인수 구현의 `mvn verify` 결과: **BUILD SUCCESS**, **157개 테스트 / 실패 0 / 오류 0 / 생략 0**. 실행 로그는 `verification/curl-arguments-verify.log`입니다. 아래 기능별 이력의 테스트 수와 JAR 실행 기록은 각 변경을 검증한 당시의 결과입니다. 검증용 `verification/` 디렉토리는 Git 추적에서 제외합니다.
 
-- 설정 테스트 45개: YAML/Excel 왕복 변환, 경로 보존, 중복/누락/수식/잘못된 값, 숫자 enum과 scalar 자동 변환 거부, 덮어쓰기 보호, 콤마 값 조합/공백/중복/변환/잘못된 토큰, preset과 직접 크기 혼용 및 변환.
+- 설정 테스트 56개: YAML/Excel 왕복 변환, 경로 보존, 중복/누락/수식/잘못된 값, 숫자 enum과 scalar 자동 변환 거부, 덮어쓰기 보호, 콤마 값 조합/공백/중복/변환/잘못된 토큰, preset과 직접 크기 혼용 및 변환, timeout 기본값과 항목별 값 보존, 잘못된 항목별 timeout 거부, 기존 Excel 3열 호환.
 - payload 테스트 21개: 12개 preset CT/PS 조합과 8개 직접 크기 CT/PS 조합의 정확한 byte 크기와 형식 유효성, 무작위 데이터.
 - payload 크기 파서 테스트 27개: preset, 단위/대소문자 별칭, 바이트 수, 경로 토큰, 최솟값/최댓값, 잘못된 크기 및 곱셈 오버플로 거부.
-- curl 통합 테스트 7개: 실제 curl의 60개 preset CT/TE/PS 조합, gzip 복원, chunked 헤더, 원본 응답, Excel 링크, HTTP 실패 후 계속 실행, timeout/연결 거부/실행 파일 누락, 비 UTF-8 응답 헤더, 콤마 값에서 확장된 8개 요청의 순서와 결과, 20K/1M의 24개 전송 조합.
+- curl 통합 테스트 9개: 실제 curl의 60개 preset CT/TE/PS 조합, gzip 복원, chunked 헤더, 원본 응답, Excel 링크, HTTP 실패 후 계속 실행, timeout/연결 거부/실행 파일 누락, 비 UTF-8 응답 헤더, 콤마 값에서 확장된 8개 요청의 순서와 결과, 20K/1M의 24개 전송 조합, 기본 3초 종료와 항목별 timeout 우선 적용 및 상위 설정 상속.
 - CLI 테스트 4개: 샘플 생성, 양방향 변환, 옵션 오류, 종료 코드, malformed Excel 설정 오류.
 - JVM 종료 테스트 2개: 첫 요청 중 중단, 완료 요청 후 중단 시 결과 Excel/중단 행/파일 링크 저장과 이후 요청 중지.
 - 결과 Excel 테스트 1개: 지정된 11개 열 순서와 각 필드의 값/링크/숫자 셀 매핑.
+- curl 추가 인수 테스트 37개: YAML·Excel 변환에서 인수 순서·중복·공백 보존, 설정과 CLI 헤더의 실제 전송, 셸 표현식의 문자 그대로 전달, 잘못된 타입·JSON·옵션 및 충돌하는 헤더 거부, 기본값·Excel 빈 셀·실행 모드 검증.
 
 독립적인 코드 리뷰에서 발견한 입력 자동 변환, 응답 헤더 인코딩, malformed Excel 오류 분류와 빌드 Java 환경 복원 문제를 먼저 재현한 뒤 수정했습니다. 남겨 둔 리뷰 항목은 없습니다.
 
-## 실행형 JAR 검증
+## 실행형 JAR 검증 (기본 기능 검증 당시)
 
 최종 JAR 자체에서 help, 샘플 YAML/Excel 생성, Excel→YAML 및 YAML→Excel 변환이 성공했습니다. 로컬 HTTP 서버에 전체 60개 조합을 실제로 실행한 결과 **60건 성공 / 0건 실패**입니다.
 
@@ -66,4 +67,26 @@ requestTimeoutSeconds (--max-time)와 connectTimeoutSeconds (--connect-timeout)�
 
 ## payloadTypes별 timeout (2026-10-06)
 
-payloadTypes 항목에서 connectTimeoutSeconds/requestTimeoutSeconds를 독립적으로 지정할 수 있습니다. 항목 값 → 상위 설정 → 3초 순서로 적용합니다. CSV 확장/Excel·YAML 왕복 보존, 기존 Excel 3열 호환, 잘못된 값 거부 및 실제 curl의 항목별 종료와 상위 설정 상속을 검증했습니다. 전체 120개 테스트 통과, Maven verify BUILD SUCCESS. 로그: verification/logs/payload-timeout-red.log, payload-timeout-verify.log.
+`payloadTypes` 항목에서 `connectTimeoutSeconds`/`requestTimeoutSeconds`를 독립적으로 지정할 수 있습니다. 항목 값 → 상위 설정 → 3초 순서로 적용합니다. 변경 전 항목별 키를 인식하지 못하는 실패를 재현한 뒤 다음 항목을 검증했습니다.
+
+| 검증 항목 | 확인 결과 |
+|---|---|
+| YAML 기본값 | 두 timeout 모두 생략하면 각각 3초 |
+| 지정값 보존 | 연결 2초/전체 7초 설정의 YAML↔Excel 변환 후 값 유지 |
+| 항목별 값과 콤마 확장 | 확장된 항목마다 timeout 유지, 생략 항목은 생략 상태 유지 |
+| 이전 Excel 설정 | 기존 CT/TE/PS 3열 파일 읽기 성공 |
+| 입력 오류 | 0, 음수, 소수, 문자열 숫자, null, boolean, int 범위 초과 거부 |
+| 실제 curl 기본값 | 약 3.05초 후 exit code 28, 결과 Excel과 파일 저장 |
+| 실제 curl 항목별 지정 | JSON/XML 두 요청에 전체 1초/연결 2초 인수 적용, 각각 약 1.04초 후 exit code 28 |
+| 실제 curl 상위 설정 상속 | 항목 timeout을 생략한 다음 요청은 전체 4초/연결 3초 인수로 정상 완료 |
+| 최종 JAR 설정 변환 | 항목별 timeout 샘플 YAML→Excel→YAML 성공, 확장된 8개 항목의 2초/5초 값 유지 |
+
+전체 **120개 테스트 통과**, **Maven verify BUILD SUCCESS**. 최종 JAR로 `samples/config.xlsx`도 새 5열 형식으로 갱신했습니다. 로그: `verification/logs/payload-timeout-red.log`, `verification/logs/payload-timeout-verify.log`. JAR 변환 결과: `verification/payload-timeouts.xlsx`, `verification/payload-timeouts.yml`.
+
+## curl 추가 파라미터 (2026-10-06)
+
+신규 테스트를 먼저 실행하여 미지원 `curlArguments` 설정과 CLI 옵션이 실패하는 것을 확인한 뒤 구현했습니다. `CurlArgumentsTest` 37개와 기존 120개를 포함한 전체 157개 테스트에서 실패·오류·생략 0건, Maven verify BUILD SUCCESS입니다. 설정 파일 인수와 CLI 인수를 순서대로 병합하여 실제 헤더로 전송하며, 공백·중복·셸 표현식 문자를 보존합니다. 비문자열 원소, 잘못된 JSON, 값 누락, URL/본문/timeout/결과 파일 변경 및 본문 관련 헤더 덮어쓰기를 실행 전에 거부합니다.
+
+최종 JAR를 로컬 HTTP 서버에 실행해 JSON/SM의 NA·GZ·CSB 3건 모두 성공했습니다. 서버에서 두 `X-Test` 헤더가 설정값→CLI값 순서로 수신되고, gzip 복원 후 포함한 각 본문이 2,048바이트임을 확인했습니다. 검증 실행 소스는 `verification/CurlArgumentsJarSmoke.java`, 결과는 `verification/curl-arguments-jar/results/20261006_162057_959_d6120a06-9ebc-451d-b10c-b79b7e96894c.xlsx`입니다.
+
+읽기 전용 코드 리뷰에서 Excel 빈 셀의 처리 기준을 확인했습니다. 선택적 설정이므로 빈 셀은 빈 배열로 처리한다는 규칙을 README·project.md와 테스트에 명시했고, 그 밖의 수정이 필요한 주요 사항은 없었습니다.

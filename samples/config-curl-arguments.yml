@@ -1,0 +1,17 @@
+endpointUrl: http://localhost:8080/api
+method: POST
+curlExecutable: curl
+connectTimeoutSeconds: 3
+requestTimeoutSeconds: 3
+outputDirectory: results
+curlArguments:
+  - --noproxy
+  - "*"
+  - --header
+  - "X-Test: sample value"
+  - --user-agent
+  - "curl-mock-client example"
+payloadTypes:
+  - contentType: json
+    transferEncoding: NA,GZ,CSB
+    payloadSize: SM

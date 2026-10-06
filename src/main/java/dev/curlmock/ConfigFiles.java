@@ -65,6 +65,13 @@ public final class ConfigFiles {
     }
 
     private static void validateInputTypes(JsonNode input) {
+        if (input.has("curlArguments")) {
+            JsonNode arguments = input.get("curlArguments");
+            if (!arguments.isArray()) throw new IllegalArgumentException("curlArguments must be an array of strings");
+            for (JsonNode argument : arguments) {
+                if (!argument.isTextual()) throw new IllegalArgumentException("curlArguments must contain only strings");
+            }
+        }
         for (String key : java.util.List.of("endpointUrl", "method", "curlExecutable", "outputDirectory")) {
             if (input.has(key) && !input.get(key).isTextual()) throw new IllegalArgumentException(key + " must be a string");
         }

@@ -14,7 +14,9 @@ import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 final class ExcelConfigCodec {
-    private static final Set<String> KEYS = Set.of("endpointUrl", "method", "curlExecutable", "connectTimeoutSeconds", "requestTimeoutSeconds", "outputDirectory");
+    private static final Set<String> KEYS = Set.of("endpointUrl", "method", "curlExecutable", "connectTimeoutSeconds", "requestTimeoutSeconds", "outputDirectory", "curlArguments");
+    private static final com.fasterxml.jackson.databind.ObjectMapper JSON = new com.fasterxml.jackson.databind.ObjectMapper()
+            .enable(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
     private static final List<String> TYPE_COLUMNS = List.of("contentType", "transferEncoding", "payloadSize");
     private static final List<String> TIMEOUT_COLUMNS = List.of("connectTimeoutSeconds", "requestTimeoutSeconds");
     private ExcelConfigCodec() {}
@@ -45,7 +47,10 @@ final class ExcelConfigCodec {
                 if (!KEYS.contains(key)) throw new IllegalArgumentException("Unknown Excel setting at row " + (i + 1) + ": " + key);
                 if (!seen.add(key)) throw new IllegalArgumentException("Duplicate Excel setting: " + key);
                 String value = text(row.getCell(1));
-                if (key.endsWith("TimeoutSeconds")) {
+                if (key.equals("curlArguments")) {
+                    if (value.isEmpty()) root.putArray(key);
+                    else root.set(key, JSON.readTree(value));
+                } else if (key.endsWith("TimeoutSeconds")) {
                     if (!value.matches("[0-9]+")) throw new IllegalArgumentException(key + " must be a positive integer");
                     root.put(key, Integer.parseInt(value));
                 } else root.put(key, value);
@@ -77,7 +82,8 @@ final class ExcelConfigCodec {
             String[][] rows = {
                 {"endpointUrl", config.endpointUrl()}, {"method", config.method()}, {"curlExecutable", config.curlExecutable()},
                 {"connectTimeoutSeconds", config.connectTimeoutSeconds().toString()},
-                {"requestTimeoutSeconds", config.requestTimeoutSeconds().toString()}, {"outputDirectory", config.outputDirectory()}
+                {"requestTimeoutSeconds", config.requestTimeoutSeconds().toString()}, {"outputDirectory", config.outputDirectory()},
+                {"curlArguments", JSON.writeValueAsString(config.curlArguments())}
             };
             for (int i = 0; i < rows.length; i++) {
                 Row row = settings.createRow(i + 1);

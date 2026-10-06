@@ -12,7 +12,7 @@ Java 21 실행형 JAR에서 실제 curl 프로세스로 설정된 API endpoint�
 2. Spring Boot CLI: 설정/DI 기능이 풍부하지만 단일 배치 CLI에 불필요한 프레임워크 비용이 발생한다.
 3. libcurl 네이티브 바인딩: 전송 콜백 제어는 가능하지만 플랫폼별 네이티브 의존성이 추가되고 curl CLI 실행 로그와 달라진다. 정확한 청크 크기가 필요하지 않으므로 선택하지 않는다.
 
-Maven 빌드, picocli CLI, Jackson databind/YAML, Apache POI XSSF, SLF4J + Logback, JUnit 5를 사용한다. Maven Shade로 의존성을 포함한 executable JAR를 생성한다. Jackson은 JSON 생성 및 YAML 모델 매핑에 사용한다. XML은 JDK의 XML 처리 기능, gzip은 JDK GZIPOutputStream을 사용한다. 의존성 버전은 구현 시 공식 배포 정보로 확인하고 고정한다.
+Maven 빌드, picocli CLI, Jackson databind/YAML, Apache POI XSSF, SLF4J + Logback, JUnit Jupiter 6.1.3을 사용한다. Maven Shade로 의존성을 포함한 executable JAR를 생성한다. Jackson은 JSON 생성 및 YAML 모델 매핑에 사용한다. XML은 JDK의 XML 처리 기능, gzip은 JDK GZIPOutputStream을 사용한다. 의존성 버전은 구현 시 공식 배포 정보로 확인하고 고정한다.
 
 ## 설정 모델
 
@@ -36,11 +36,19 @@ payloadTypes:
 
 추가 요청에 따라 `payloadTypes`의 각 필드는 단일 값 또는 콤마로 구분한 여러 값을 받는다. 한 레코드 안에서 CT × TE × PS를 입력 순서대로 교차 확장하고, 배열 레코드는 순서대로 연결한다. 예를 들어 `json, xml` / `GZ,CSB` / `CM,SM`은 8건으로 실행된다. 콤마 주변 공백을 제거하며 빈 값과 잘못된 값은 거부한다. 중복 값은 명시한 횟수만큼 유지한다. 샘플 생성은 기존 4 CT × 5 TE × 3 PS의 60개 레코드를 제공하며, 복수 값 예시는 `samples/config-multi.yml`로 제공한다. 기본 method는 POST이며 본문 전송을 지원하는 POST/PUT/PATCH를 허용한다. 헤더 사용자 정의나 인증, 병렬 실행, 자동 재시도는 초기 범위에 포함하지 않는다.
 
-Excel은 `Settings` 시트의 `key`, `value` 열과 `PayloadTypes` 시트의 `contentType`, `transferEncoding`, `payloadSize` 열로 구성한다. Settings는 endpoint와 실행 옵션을 담고 PayloadTypes는 배열과 대응한다. 양방향 변환은 의미가 동일한 모델을 보존한다. 알 수 없는 키, 누락 필드, 유효하지 않은 enum, HTTP(S)가 아닌 URL, 비양수 timeout, 빈 배열은 실행 전에 오류로 보고한다. 상대 outputDirectory는 설정 파일 디렉토리를 기준으로 해석하고 변환 후에도 같은 목적지를 가리키도록 보존한다.
+Excel은 `Settings` 시트의 `key`, `value` 열과 `PayloadTypes` 시트의 `contentType`, `transferEncoding`, `payloadSize`, `connectTimeoutSeconds`, `requestTimeoutSeconds` 열로 구성한다. 뒤의 두 timeout 열은 선택적이며 빈 셀은 상위 설정을 상속한다. 기존 3열 파일도 읽을 수 있다. Settings는 endpoint와 실행 옵션을 담고 PayloadTypes는 배열과 대응한다. 양방향 변환은 의미가 동일한 모델을 보존한다. 알 수 없는 키, 누락 필드, 유효하지 않은 enum, HTTP(S)가 아닌 URL, 비양수 timeout, 빈 배열은 실행 전에 오류로 보고한다. 상대 outputDirectory는 설정 파일 디렉토리를 기준으로 해석하고 변환 후에도 같은 목적지를 가리키도록 보존한다.
 
 Excel의 CT/TE/PS 셀에도 콤마 문자열을 지정할 수 있다. YAML과 Excel은 동일한 조합 확장 로직을 사용한다. 변환 파일은 확장된 개별 요청 레코드로 기록하여 요청 순서, 중복과 실행 횟수를 보존한다.
 
 CT canonical 값과 URL 토큰은 `json`, `xml`, `form`, `multipart`이다. MIME 타입은 순서대로 `application/json`, `application/xml`, `application/x-www-form-urlencoded`, `multipart/form-data; boundary=...`이다. multipart boundary는 요청마다 생성한다.
+
+### Timeout 적용 규칙
+
+`connectTimeoutSeconds`는 curl `--connect-timeout`, `requestTimeoutSeconds`는 연결 시간을 포함한 전체 요청 제한인 `--max-time`에 적용한다. 최상위 기본값은 각각 3초다. 각 `payloadTypes` 항목에도 두 값을 선택적으로 지정할 수 있으며, 옵션별로 항목 값 → 최상위 값 → 3초 순서로 적용한다. 예를 들어 최상위 전체 요청 7초, 항목 전체 요청 5초/연결 2초는 해당 항목에 5초/2초를 적용하고 생략한 다른 항목에는 7초/3초를 적용한다.
+
+YAML timeout은 따옴표 없는 양의 int 정수이며 null, 문자열 숫자, 소수, boolean 및 범위 초과는 거부한다. Excel에서는 양의 정수 숫자 셀 또는 정수 문자열 셀을 사용한다. 항목별 생략 상태와 지정값은 양방향 변환에서 보존하며, CT/TE/PS 콤마 확장된 각 요청에 같은 항목의 timeout을 복사한다. timeout 자체는 콤마 확장하지 않는다.
+
+curl 인수와 Java 프로세스 대기 한도는 같은 유효 전체 timeout을 사용한다. Java 대기 한도는 curl의 종료 처리를 위해 전체 timeout에 5초를 더한 값이다. 일반 timeout은 curl exit code 28로 기록하고 요청/응답 파일과 결과 행을 저장한 후 다음 요청으로 진행한다. 적용한 인수는 UUID별 curl 로그에 기록한다.
 
 ## Payload 및 전송 규칙
 
@@ -99,6 +107,35 @@ results/
 - Curl runner: ProcessBuilder, 요청 구성, stdin, timeout, stdout/stderr, 헤더 및 실행 메타데이터 수집.
 - Batch executor/report writer: 실행별 디렉토리, 트랜잭션별 파일 및 링크가 포함된 결과 workbook 생성.
 
+## curl 추가 파라미터 설정
+
+2026-10-06 후속 요청으로 구현했다. 자세한 지원 옵션과 구조 변경 내역은 [프로젝트 기술 문서](../../../project.md)에 기록한다.
+
+사용자가 curl에 전달할 추가 인수를 설정할 수 있도록 최상위 `curlArguments`와 반복 가능한 CLI 옵션 `--curl-arg`를 추가한다. 최상위 설정은 모든 payload 요청에 공통 적용한다. 각 배열 원소는 하나의 인수이며, 옵션과 그 값은 별도 원소로 지정한다. 공백이 포함된 값도 하나의 인수로 보존하고 셸 명령 문자열로 실행하지 않는다.
+
+YAML 예시:
+
+```yaml
+curlArguments:
+  - --insecure
+  - --header
+  - "X-Test: value"
+```
+
+Excel `Settings` 시트에서는 `key`를 `curlArguments`, `value`를 JSON 문자열 배열로 기록한다. 예: `["--insecure", "--header", "X-Test: value"]`. YAML↔Excel 변환에서 순서, 중복 및 값의 공백을 보존한다. 설정을 생략하면 빈 배열로 처리하여 기존 파일과 호환한다.
+
+CLI 예시:
+
+```powershell
+java -jar target/curl-http-mock-client.jar --config samples/config.yml --curl-arg=--insecure --curl-arg=--header --curl-arg="X-Test: value"
+```
+
+CLI 추가 인수는 설정 파일의 추가 인수 뒤에 입력 순서대로 이어 붙인다. 이 옵션은 `--config` 실행 모드에서 사용한다. 실제 curl 로그의 인수 배열에도 적용값을 기록한다.
+
+`ClientConfig`, `ConfigFiles`, `ExcelConfigCodec`, `Main`, `CurlRunner`와 추가 검증 클래스 `CurlArguments`에서 처리한다. 배열이 아닌 값, 문자열이 아닌 원소 및 null 입력은 설정 오류로 처리한다. 인수 개수가 알려진 헤더·인증·프록시·TLS·연결 옵션을 지원 목록으로 관리하며 URL, 본문, timeout, 결과 파일 및 상태 수집을 변경하는 옵션은 거부한다. 본문 관련 헤더 덮어쓰기, 옵션 축약/결합, 헤더 파일 참조, CR/LF/NUL도 거부한다. Excel 빈 셀은 빈 배열이다.
+
+검증 범위: 미지정 설정의 기존 동작, YAML·Excel 양방향 변환, CLI 반복 옵션과 적용 순서, 공백이 포함된 헤더의 실제 curl 전송, 잘못된 입력 및 실행 모드 오류. 기존 timeout·본문 전송·결과 저장 테스트도 함께 확인한다. 최신 실행 결과는 [검증 문서](../../verification.md)에 기록한다.
+
 ## 검증 및 전달 기준
 
 1. 모든 CT/PS 조합의 정확한 바이트 크기와 JSON/XML/form/multipart의 유효성을 검증한다.
@@ -108,7 +145,4 @@ results/
 5. Java 21로 Maven test/package를 실행하고 JAR에서 help, 샘플 생성 및 양방향 변환을 검증한다.
 6. README에 한국어 실행 안내, 설정 스키마, 전송 의미, 결과 구조, Java 21/curl 요구사항을 기록한다.
 
-로컬에 `D:/01.app/java/jdk-21.0.3`이 발견되었다. 기본 Java 17 설정은 변경하지 않고 빌드 프로세스에 한해 Java 21을 지정한다. 현재 디렉토리는 Git 저장소가 아니므로 설계 문서를 파일로 보존하며 자동으로 Git 초기화/커밋하지 않는다.
-
-
-payloadTypes 항목의 connectTimeoutSeconds/requestTimeoutSeconds는 선택적 양의 정수다. 각 옵션은 항목별 값, 상위 값, 기본 3초 순서로 적용하며 콤마 확장 후에도 유지한다. Excel PayloadTypes 시트는 두 선택적 timeout 열을 지원하고 빈 셀은 상속한다. 기존 3열 파일과 양방향 변환을 지원한다.
+로컬에 `D:/01.app/java/jdk-21.0.3`이 발견되었다. 기본 Java 17 설정은 변경하지 않고 빌드 프로세스에 한해 Java 21을 지정한다. Git 저장소는 https://github.com/hellowpop/curl-http-mock-client.git 이며 master 브랜치에 구현과 timeout 변경을 반영했다.

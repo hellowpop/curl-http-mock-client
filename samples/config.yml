@@ -5,6 +5,7 @@ curlExecutable: "curl"
 connectTimeoutSeconds: 3
 requestTimeoutSeconds: 3
 outputDirectory: "results"
+curlArguments: []
 payloadTypes:
 - contentType: "json"
   transferEncoding: "NA"

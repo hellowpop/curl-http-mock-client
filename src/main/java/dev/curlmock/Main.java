@@ -12,6 +12,8 @@ public final class Main implements Callable<Integer> {
     @ArgGroup(exclusive = true, multiplicity = "1") private Mode mode;
     @Option(names = "--output", description = "Conversion destination (.yml/.yaml/.xlsx).") private Path output;
     @Option(names = "--overwrite", description = "Replace an existing sample or converted configuration.") private boolean overwrite;
+    @Option(names = "--curl-arg", paramLabel = "ARG", description = "Append one curl argument (repeatable, run mode only; use --curl-arg=ARG).")
+    private java.util.List<String> curlArguments = new java.util.ArrayList<>();
     @Spec private Model.CommandSpec spec;
 
     static final class Mode {
@@ -28,6 +30,7 @@ public final class Main implements Callable<Integer> {
         ClientConfig config;
         try {
             boolean conversion = mode.excelToYml != null || mode.ymlToExcel != null;
+            if (mode.config == null && !curlArguments.isEmpty()) throw new IllegalArgumentException("--curl-arg is only valid with --config");
             if (conversion && output == null) throw new IllegalArgumentException("Conversion requires --output");
             if (!conversion && output != null) throw new IllegalArgumentException("--output is only valid for conversion");
             if (mode.config != null && overwrite) throw new IllegalArgumentException("--overwrite is only valid for samples or conversion");
@@ -49,6 +52,8 @@ public final class Main implements Callable<Integer> {
                 return created(output);
             }
             config = ConfigFiles.read(mode.config);
+            config = config.withAdditionalCurlArguments(curlArguments);
+            config.validate();
         } catch (IOException | RuntimeException e) {
             spec.commandLine().getErr().println("Configuration error: " + e.getMessage());
             return 2;
