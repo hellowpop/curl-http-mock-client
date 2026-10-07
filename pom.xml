@@ -9,12 +9,20 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <jackson.version>2.21.7</jackson.version>
     <log4j.version>2.26.1</log4j.version>
+    <brotli.version>1.23.0</brotli.version>
   </properties>
   <dependencyManagement><dependencies>
     <dependency><groupId>com.fasterxml.jackson</groupId><artifactId>jackson-bom</artifactId><version>${jackson.version}</version><type>pom</type><scope>import</scope></dependency>
     <dependency><groupId>org.apache.logging.log4j</groupId><artifactId>log4j-bom</artifactId><version>${log4j.version}</version><type>pom</type><scope>import</scope></dependency>
   </dependencies></dependencyManagement>
   <dependencies>
+    <dependency><groupId>com.aayushatharva.brotli4j</groupId><artifactId>brotli4j</artifactId><version>${brotli.version}</version></dependency>
+    <dependency><groupId>com.aayushatharva.brotli4j</groupId><artifactId>native-windows-x86_64</artifactId><version>${brotli.version}</version><scope>runtime</scope></dependency>
+    <dependency><groupId>com.aayushatharva.brotli4j</groupId><artifactId>native-windows-aarch64</artifactId><version>${brotli.version}</version><scope>runtime</scope></dependency>
+    <dependency><groupId>com.aayushatharva.brotli4j</groupId><artifactId>native-linux-x86_64</artifactId><version>${brotli.version}</version><scope>runtime</scope></dependency>
+    <dependency><groupId>com.aayushatharva.brotli4j</groupId><artifactId>native-linux-aarch64</artifactId><version>${brotli.version}</version><scope>runtime</scope></dependency>
+    <dependency><groupId>com.aayushatharva.brotli4j</groupId><artifactId>native-osx-x86_64</artifactId><version>${brotli.version}</version><scope>runtime</scope></dependency>
+    <dependency><groupId>com.aayushatharva.brotli4j</groupId><artifactId>native-osx-aarch64</artifactId><version>${brotli.version}</version><scope>runtime</scope></dependency>
     <dependency><groupId>info.picocli</groupId><artifactId>picocli</artifactId><version>4.7.7</version></dependency>
     <dependency><groupId>com.fasterxml.jackson.core</groupId><artifactId>jackson-databind</artifactId></dependency>
     <dependency><groupId>com.fasterxml.jackson.dataformat</groupId><artifactId>jackson-dataformat-yaml</artifactId></dependency>

@@ -12,7 +12,7 @@ Java 21 실행형 JAR에서 실제 curl 프로세스로 설정된 API endpoint�
 2. Spring Boot CLI: 설정/DI 기능이 풍부하지만 단일 배치 CLI에 불필요한 프레임워크 비용이 발생한다.
 3. libcurl 네이티브 바인딩: 전송 콜백 제어는 가능하지만 플랫폼별 네이티브 의존성이 추가되고 curl CLI 실행 로그와 달라진다. 정확한 청크 크기가 필요하지 않으므로 선택하지 않는다.
 
-Maven 빌드, picocli CLI, Jackson databind/YAML, Apache POI XSSF, SLF4J + Logback, JUnit Jupiter 6.1.3을 사용한다. Maven Shade로 의존성을 포함한 executable JAR를 생성한다. Jackson은 JSON 생성 및 YAML 모델 매핑에 사용한다. XML은 JDK의 XML 처리 기능, gzip은 JDK GZIPOutputStream을 사용한다. 의존성 버전은 구현 시 공식 배포 정보로 확인하고 고정한다.
+Maven 빌드, picocli CLI, Jackson databind/YAML, Apache POI XSSF, SLF4J + Logback, JUnit Jupiter 6.1.3을 사용한다. Maven Shade로 의존성을 포함한 executable JAR를 생성한다. Jackson은 JSON 생성 및 YAML 모델 매핑에 사용한다. XML은 JDK의 XML 처리 기능, gzip과 zlib deflate는 JDK 압축 스트림을 사용한다. Unix compress는 자체 LZW encoder, Brotli는 Brotli4j 1.23.0과 Windows/Linux/macOS x64/ARM64 네이티브 라이브러리를 사용한다. 의존성 버전은 구현 시 공식 배포 정보로 확인하고 고정한다.
 
 ## 설정 모델
 
@@ -34,7 +34,7 @@ payloadTypes:
     payloadSize: SM
 ```
 
-추가 요청에 따라 `payloadTypes`의 각 필드는 단일 값 또는 콤마로 구분한 여러 값을 받는다. 한 레코드 안에서 CT × TE × PS를 입력 순서대로 교차 확장하고, 배열 레코드는 순서대로 연결한다. 예를 들어 `json, xml` / `GZ,CSB` / `CM,SM`은 8건으로 실행된다. 콤마 주변 공백을 제거하며 빈 값과 잘못된 값은 거부한다. 중복 값은 명시한 횟수만큼 유지한다. 샘플 생성은 기존 4 CT × 5 TE × 3 PS의 60개 레코드를 제공하며, 복수 값 예시는 `samples/config-multi.yml`로 제공한다. 기본 method는 POST이며 본문 전송을 지원하는 POST/PUT/PATCH를 허용한다. 헤더 사용자 정의나 인증, 병렬 실행, 자동 재시도는 초기 범위에 포함하지 않는다.
+추가 요청에 따라 `payloadTypes`의 각 필드는 단일 값 또는 콤마로 구분한 여러 값을 받는다. 한 레코드 안에서 CT × TE × PS를 입력 순서대로 교차 확장하고, 배열 레코드는 순서대로 연결한다. 예를 들어 `json, xml` / `GZ,CSB` / `CM,SM`은 8건으로 실행된다. 콤마 주변 공백을 제거하며 빈 값과 잘못된 값은 거부한다. 중복 값은 명시한 횟수만큼 유지한다. 샘플 생성은 4 CT × 8 TE × 3 PS의 96개 레코드를 제공하며, 전체 조합 파일은 samples/config-all-cases.yml과 samples/config-all-cases.xlsx다. 복수 값 예시는 `samples/config-multi.yml`로 제공한다. 기본 method는 POST이며 본문 전송을 지원하는 POST/PUT/PATCH를 허용한다. 헤더 사용자 정의나 인증, 병렬 실행, 자동 재시도는 초기 범위에 포함하지 않는다.
 
 Excel은 `Settings` 시트의 `key`, `value` 열과 `PayloadTypes` 시트의 `contentType`, `transferEncoding`, `payloadSize`, `connectTimeoutSeconds`, `requestTimeoutSeconds` 열로 구성한다. 뒤의 두 timeout 열은 선택적이며 빈 셀은 상위 설정을 상속한다. 기존 3열 파일도 읽을 수 있다. Settings는 endpoint와 실행 옵션을 담고 PayloadTypes는 배열과 대응한다. 양방향 변환은 의미가 동일한 모델을 보존한다. 알 수 없는 키, 누락 필드, 유효하지 않은 enum, HTTP(S)가 아닌 URL, 비양수 timeout, 빈 배열은 실행 전에 오류로 보고한다. 상대 outputDirectory는 설정 파일 디렉토리를 기준으로 해석하고 변환 후에도 같은 목적지를 가리키도록 보존한다.
 
@@ -56,10 +56,11 @@ PS는 SM=2,048, CM=16,384, LG=65,536바이트다. UTF-8로 직렬화한 압축 �
 
 추가 요청에 따라 `20K`, `1M`처럼 직접 크기를 지정할 수 있다. K/KB/KiB는 1,024바이트, M/MB/MiB는 1,048,576바이트이며 대소문자와 단위 앞 공백을 허용한다. B 또는 단위 없는 문자열은 바이트 수다. 정수 크기 2K~64M를 지원한다. 최소 크기는 모든 MIME 구조를 수용하며 최대 크기는 현재 메모리 기반 생성 방식의 할당을 제한한다. 파싱 시 long 곱셈 오버플로와 범위를 검증한다. 경로/변환에는 정규화된 `20K`, `1M`, `20480B` 토큰을 사용하고 기존 preset 코드는 유지한다. 직접 크기와 preset의 콤마 혼용을 지원한다.
 
-TE 코드는 NA, GZ, CSB, CCB, CLB다.
+TE 코드는 NA, GZ, CSB, CCB, CLB, DEFLATE, COMPRESS, BR이다. 설정 입력은 대소문자를 구분하지 않는다.
 
 - NA: Content-Length가 있는 일반 본문을 전송한다.
 - GZ: 본문을 gzip으로 압축하고 `Content-Encoding: gzip`을 전송한다. 설정 필드와 경로에서는 사용자 지정 분류인 TE_GZ를 유지한다. HTTP 헤더의 Transfer-Encoding: gzip과는 구별한다. 이 gzip 해석은 본 설계의 기본 제안이다.
+- DEFLATE/COMPRESS/BR: 각각 zlib deflate, Unix .Z LZW, Brotli로 압축하고 Content-Encoding: deflate/compress/br을 전송한다. 압축된 Content-Length를 사용하고 실제 전송 본문을 .deflate/.Z/.br 파일에 보존한다.
 - CSB/CCB/CLB: HTTP/1.1 및 `Transfer-Encoding: chunked`를 사용하고 지정 크기로 curl stdin에 데이터를 공급한다. Content-Length 헤더는 보내지 않는다. `--upload-file -` 및 명시적 method로 전송하며 stdin 쓰기 단위와 실제 HTTP 청크 크기가 다를 수 있음을 문서화한다.
 
 모든 요청은 HTTP/1.1을 사용한다. 경로는 base URL의 기존 경로 뒤에 `/CT_{ct}/TE_{te}/PS_{ps}`를 추가한다. 설정 endpoint URL은 쿼리와 fragment가 없는 base URL로 제한한다. 요청 예시는 `http://localhost:8080/CT_json/TE_GZ/PS_CM`이다. curl의 사용자 rc 설정은 무시하고 인수를 배열로 전달하여 shell 해석을 피한다. curl stderr/stdout과 stdin을 교착 없이 처리하고 timeout 시 프로세스를 정리한다.
@@ -94,7 +95,7 @@ results/
     <transactionUUID>_request_payload.gz  # GZ일 때 실제 전송 본문
 ```
 
-`request_payload.txt`는 압축 전 직렬화 본문이며 GZ의 실제 wire entity bytes는 별도 .gz 파일로 보존한다. `response_payload.txt`는 정상 종료한 curl 응답이 유효한 JSON이면 2칸 들여쓰기 형식으로 저장하며, 나머지 본문과 curl 실패/취소 응답은 원래 bytes를 보존한다. curl 로그에는 실행 인수, verbose/trace 정보, 표준 출력과 오류, exit code, elapsed time 및 실패 원인을 포함한다. 기록 헤더는 실제 curl 전송/수신 로그와 dump-header에서 추출한다. 중간 응답 헤더도 보존한다.
+`request_payload.txt`는 압축 전 직렬화 본문이며 압축된 실제 wire entity bytes는 방식별 .gz/.deflate/.Z/.br 파일로 보존한다. `response_payload.txt`는 정상 종료한 curl 응답이 유효한 JSON이면 2칸 들여쓰기 형식으로 저장하며, 나머지 본문과 curl 실패/취소 응답은 원래 bytes를 보존한다. curl 로그에는 실행 인수, verbose/trace 정보, 표준 출력과 오류, exit code, elapsed time 및 실패 원인을 포함한다. 기록 헤더는 실제 curl 전송/수신 로그와 dump-header에서 추출한다. 중간 응답 헤더도 보존한다.
 
 결과 시트의 열 순서는 추가 사용자 요청을 반영하여 `uuid`, `endpoint url`, `request body link`, `request header`, `response body link`, `response header`, `http status`, `curl exit code`, `elapsed ms`, `error`, `curl 실행 입출력 log link`로 지정한다. 파일 링크는 결과 Excel의 위치를 기준으로 한 상대 경로로 저장한다. Excel 셀 한도를 초과하는 헤더는 셀에 잘린 표시와 전체 헤더 파일 링크를 제공한다. 외부 응답 문자열은 수식이 아닌 문자열 셀로 기록한다. 결과 파일 저장 실패는 로그와 종료 코드에 명확히 반영한다.
 
@@ -148,13 +149,15 @@ CLI 추가 인수는 설정 파일의 추가 인수 뒤에 입력 순서대로 �
 
 curl 정상 종료 시 전체 본문이 유효한 JSON이면 객체와 배열을 2칸 들여쓰기한 UTF-8로 저장하며 CLI와 GUI에 공통 적용한다. HTTP 오류의 JSON도 포맷한다. 스트리밍 토큰 처리로 숫자 정밀도와 중복 키를 보존하고 전체 파싱 성공 뒤 파일을 교체한다. JSON이 아닌 본문·불완전한 문서·curl 실패/취소 응답은 원문을 유지한다. 저장된 응답 파일을 결과 화면과 팝업이 읽는다.
 
+실행 요약은 항목/실행값/적용 범위 JTable이며 업데이트 또는 실행 전에 편집값을 검증한다. 메서드/endpoint/curl/추가 인수/출력은 공통값이고 본문 형식/전송 방식/크기/timeout은 선택 요청 값이다. 변경은 현재 application의 메모리 snapshot에만 반영하고 설정파일은 수정하지 않는다. 단건/선택/전체 실행이 이를 사용하며 중복 케이스는 원본 인덱스로 구분한다. 실행 중에는 편집과 업데이트를 잠근다.
+
 현재 구조와 변경 이력의 기준 문서는 [project.md](../../../project.md)이며 검증 결과는 [검증 문서](../../verification.md)에 기록한다.
 
 ## 검증 및 전달 기준
 
 1. 모든 CT/PS 조합의 정확한 바이트 크기와 JSON/XML/form/multipart의 유효성을 검증한다.
 2. 모든 CT/TE/PS 설정의 YAML↔Excel round-trip과 잘못된 설정 거부를 검증한다.
-3. JDK 로컬 HTTP 서버와 실제 curl로 60개 조합을 실행하여 경로, MIME, 수신 본문 크기, gzip 복원, chunked 헤더, 상태 및 결과 링크를 검증한다. 실제 청크 크기의 일치는 검증 조건이 아니다.
+3. JDK 로컬 HTTP 서버와 실제 curl로 96개 조합을 실행하여 경로, MIME, 수신 본문 크기, gzip/deflate/compress/Brotli 복원, chunked 헤더, 상태 및 결과 링크를 검증한다. 실제 청크 크기의 일치는 검증 조건이 아니다.
 4. 연결 실패, HTTP 오류, timeout과 결과 레코드 보존을 검증한다.
 5. Java 21로 Maven test/package를 실행하고 JAR에서 help, 샘플 생성 및 양방향 변환을 검증한다.
 6. README에 한국어 실행 안내, 설정 스키마, 전송 의미, 결과 구조, Java 21/curl 요구사항을 기록한다.

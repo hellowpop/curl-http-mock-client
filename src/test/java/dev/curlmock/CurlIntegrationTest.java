@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class CurlIntegrationTest {
     @TempDir Path temp;
 
-    @Test void sendsAllSixtyScenariosThroughRealCurlAndLinksTheirArtifacts() throws Exception {
+    @Test void sendsAllNinetySixScenariosThroughRealCurlAndLinksTheirArtifacts() throws Exception {
         var captured = java.util.Collections.synchronizedList(new ArrayList<Captured>());
         byte[] response = new byte[] {0, 1, (byte) 255, 10, 42};
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
@@ -28,6 +28,8 @@ class CurlIntegrationTest {
                 byte[] body = exchange.getRequestBody().readAllBytes();
                 String ce = exchange.getRequestHeaders().getFirst("Content-Encoding");
                 if ("gzip".equals(ce)) try (var gzip = new GZIPInputStream(new ByteArrayInputStream(body))) { body = gzip.readAllBytes(); }
+                if (List.of("deflate", "compress", "br").contains(ce == null ? "" : ce))
+                    body = AdditionalEncodingsTest.decode(ce.toUpperCase(java.util.Locale.ROOT), body);
                 captured.add(new Captured(exchange.getRequestURI().getPath(), exchange.getRequestMethod(),
                         exchange.getRequestHeaders().getFirst("Content-Type"), ce,
                         exchange.getRequestHeaders().getFirst("Transfer-Encoding"), exchange.getRequestHeaders().getFirst("Content-Length"), body));
@@ -40,11 +42,11 @@ class CurlIntegrationTest {
             try {
                 var config = config(server, ClientConfig.sample().payloadTypes(), 10, "curl");
                 var run = new BatchExecutor().run(config);
-                assertEquals(60, run.transactions().size());
-                assertEquals(60, captured.size());
+                assertEquals(96, run.transactions().size());
+                assertEquals(96, captured.size());
                 assertTrue(run.success());
                 assertTrue(run.workbook().getFileName().toString().matches("[0-9]{8}_[0-9]{6}_[0-9]{3}_[a-f0-9-]{36}\\.xlsx"));
-                for (int i = 0; i < 60; i++) {
+                for (int i = 0; i < 96; i++) {
                     var type = config.payloadTypes().get(i);
                     var got = captured.get(i);
                     assertEquals("/base" + type.path(), got.path());
@@ -53,7 +55,13 @@ class CurlIntegrationTest {
                     assertTrue(got.contentType().startsWith(type.contentType().mime()));
                     if (type.transferEncoding().chunked()) { assertEquals("chunked", got.te()); assertNull(got.length()); }
                     else { assertNull(got.te()); assertNotNull(got.length()); }
-                    assertEquals(type.transferEncoding() == TransferEncoding.GZ ? "gzip" : null, got.ce());
+                    assertEquals(switch (type.transferEncoding()) {
+                        case GZ -> "gzip";
+                        case DEFLATE -> "deflate";
+                        case COMPRESS -> "compress";
+                        case BR -> "br";
+                        default -> null;
+                    }, got.ce());
                     switch (type.contentType()) {
                         case JSON -> assertEquals(9, new ObjectMapper().readTree(got.body()).size());
                         case XML -> assertEquals("payload", DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(new ByteArrayInputStream(got.body())).getDocumentElement().getTagName());
@@ -73,9 +81,9 @@ class CurlIntegrationTest {
                 }
                 try (var book = new XSSFWorkbook(Files.newInputStream(run.workbook()))) {
                     var sheet = book.getSheet("Results");
-                    assertEquals(61, sheet.getPhysicalNumberOfRows());
+                    assertEquals(97, sheet.getPhysicalNumberOfRows());
                     assertEquals("uuid", sheet.getRow(0).getCell(0).getStringCellValue());
-                    for (int row = 1; row <= 60; row++) {
+                    for (int row = 1; row <= 96; row++) {
                         for (int col : new int[] {2, 4, 10}) {
                             var link = sheet.getRow(row).getCell(col).getHyperlink();
                             assertNotNull(link);

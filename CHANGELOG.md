@@ -1,5 +1,21 @@
 # 변경 이력
 
+## 2026-10-07 — 전체 조합 샘플과 실행 요약 편집 문서
+
+- `samples/config-all-cases.yml`과 `samples/config-all-cases.xlsx`에 4 CT × 8 TE × 3 기본 크기의 전체 96개 조합을 추가했습니다. YAML/Excel 값과 순서의 동등성, 중복 없음과 모든 조합의 존재를 검증했습니다.
+- 실행 요약을 항목·실행값·적용 범위 그리드로 표시하고, 업데이트 및 실행 시 입력 검증을 거쳐 메모리 설정을 반영합니다. 공통값은 전체 요청에, 본문 설정과 timeout은 선택한 요청에 적용합니다.
+- 변경값은 application 실행 동안만 유지하며 설정파일을 저장하지 않습니다. 편집값은 단건·선택·전체 실행에 적용하고 실행 중에는 편집을 잠급니다.
+- README, project.md, 설계 문서와 검증 기록을 현재 구현에 맞추고 CLI 샘플 생성 도움말에서 이전 60건 설명을 제거했습니다.
+- 푸시 전 Java 21 Maven verify에서 전체 194개 테스트가 실패·오류·생략 없이 통과했습니다. 생성 JAR의 도움말과 추가 압축 요청 3건 및 전체 조합 샘플도 다시 확인했습니다.
+
+## 2026-10-06 — deflate·compress·Brotli 추가
+
+- Transfer-Encoding 분류에 DEFLATE, COMPRESS, BR을 추가하고 실행 요약 그리드와 YAML·Excel에서 지원합니다. 소문자 설정 입력도 허용합니다.
+- zlib deflate, Unix .Z LZW, Brotli로 본문을 압축하고 대응하는 Content-Encoding과 압축된 Content-Length로 전송합니다. 원문과 실제 전송 파일을 별도로 저장합니다.
+- Brotli4j 및 Windows·Linux·macOS x64/ARM64 네이티브 라이브러리를 실행 JAR에 포함합니다.
+- 새 생성 샘플을 96개 조합으로 확장했습니다. 기존 설정파일과 application 편집값의 메모리 적용 방식은 유지합니다.
+- 전체 194개 테스트, Maven verify, 별도 JVM의 최종 JAR 전송·복원 검증이 통과했습니다.
+
 ## 2026-10-06 — 목록 전체실행 및 검색 결과 선택실행
 
 - 목록 하단 전체실행 버튼으로 설정된 모든 케이스를 모달 팝업에서 백그라운드 실행합니다.

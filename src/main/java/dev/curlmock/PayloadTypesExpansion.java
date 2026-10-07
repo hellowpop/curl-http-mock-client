@@ -16,7 +16,7 @@ final class PayloadTypesExpansion {
         int index = 0;
         for (JsonNode entry : entries) {
             var contentTypes = values(entry, "contentType", index, ContentType::parse);
-            var encodings = values(entry, "transferEncoding", index, TransferEncoding::valueOf);
+            var encodings = values(entry, "transferEncoding", index, TransferEncoding::parse);
             var sizes = values(entry, "payloadSize", index, PayloadSize::parse);
             for (var ct : contentTypes) for (var te : encodings) for (var ps : sizes) {
                 // Keep other fields so Jackson still rejects unknown entry properties.

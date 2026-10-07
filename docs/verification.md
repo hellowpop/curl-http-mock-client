@@ -1,15 +1,29 @@
 # 검증 결과
 
+## 문서 정리와 푸시 전 최종 검증 (2026-10-07)
+
+실행 요약 편집, 추가 압축 방식, 96건 전체 조합 샘플과 플랫폼별 Brotli 라이브러리 설명을 README/project.md/설계 문서/CHANGELOG에 반영했다. CLI 샘플 생성 도움말은 고정 60건 문구를 제거하고 전체 preset 조합 생성으로 표시한다.
+
+Java 21 Maven verify를 다시 실행하여 전체 194개 테스트의 실패·오류·생략 0건과 BUILD SUCCESS를 확인했다. 최종 로그는 `verification/docs-push-20261007.log`이다. YAML/Excel 전체 조합 샘플이 동일하고 96개 조합을 중복 없이 포함하는 것도 설정 로더로 다시 검증했다. 생성 JAR의 도움말과 별도 JVM의 deflate/compress/br 실제 업로드·독립 decoder 복원·설정파일 보존을 확인했다. 코드를 포함한 현재 작업 내용을 master에 커밋하고 origin으로 푸시하며 JAR, 캐시와 검증 생성물은 기존 ignore 규칙을 유지한다.
+
+## deflate·compress·Brotli 및 실행 요약 편집 (2026-10-06)
+
+Java 21 Maven verify에서 전체 194개 테스트의 실패·오류·생략 0건과 BUILD SUCCESS를 확인했다. 로그는 `verification/encodings-final.log`이다. 새 CT×TE×PS 96개 조합의 실제 curl 전송과 원문 크기/형식을 검증했다. AdditionalEncodingsTest에서 1 MiB DEFLATE/COMPRESS/BR 요청의 Content-Encoding, 압축된 Content-Length, 저장 전송 파일, 독립 decoder의 원문 복원을 확인했다. Unix .Z의 빈 입력, 단일 high-bit byte, 반복 데이터, 200,000바이트 난수도 복원했다. 소문자 YAML 입력과 Excel 왕복 및 실행 요약 콤보박스 업데이트를 검증했다.
+
+최종 shaded JAR을 별도 JVM으로 실행하여 deflate/compress/br 20 KiB 요청 3건을 전송하고 독립 decoder로 각각 20,480바이트 원문을 복원했다. curl 종료 코드와 HTTP 상태는 모두 0/200이며 원본 설정파일은 변하지 않았다. CLI 로그는 `verification/encodings-jar/cli.log`이다. JAR 내부에 Windows·Linux·macOS x64/ARM64 네이티브 리소스 6개가 포함된 것도 확인했다. 실제 네이티브 실행 환경은 Windows x64이며 다른 플랫폼에서의 실행은 검증하지 않았다.
+
+RuntimeSummaryTest에서 단건·선택·전체 실행의 편집값 적용, 중복 케이스 분리, 활성 셀 확정, 입력 오류의 원자성, 원본 설정파일 보존과 재로딩을 검증했다. 검색 조건에서 제외되는 편집 요청도 단건 실행 대상은 유지한다. 화면은 Swing offscreen 렌더링으로 확인했으며 실제 데스크톱 조작은 검증하지 않았다.
+
 2026-10-06, Java 21.0.3 / Maven 3.9.11 / Windows curl 8.21.0 환경에서 검증했습니다.
 
 ## 자동 테스트
 
-최신 Swing 전체/선택실행 및 JSON 응답 pretty 저장 구현의 `mvn verify` 결과: **BUILD SUCCESS**, **187개 테스트 / 실패 0 / 오류 0 / 생략 0**. 기능 검증 로그는 `verification/application/filtered-batch-verify.log`입니다. 아래 기능별 이력의 테스트 수와 JAR 실행 기록은 각 변경을 검증한 당시의 결과입니다. 검증용 `verification/` 디렉토리는 Git 추적에서 제외합니다. Swing 컴포넌트 동작과 화면 렌더링은 headless 환경에서 검증했으며 실제 데스크톱의 팝업 창 조작은 포함하지 않았습니다.
+현재 실행 요약 편집·추가 압축 방식 구현의 `mvn verify` 결과: **BUILD SUCCESS**, **194개 테스트 / 실패 0 / 오류 0 / 생략 0**. 최신 검증 로그는 `verification/docs-push-20261007.log`입니다. 아래 기능별 이력의 테스트 수와 JAR 실행 기록은 각 변경을 검증한 당시의 결과입니다. 검증용 `verification/` 디렉토리는 Git 추적에서 제외합니다. Swing 컴포넌트 동작과 화면 렌더링은 headless 환경에서 검증했으며 실제 데스크톱의 팝업 창 조작은 포함하지 않았습니다.
 
 - 설정 테스트 56개: YAML/Excel 왕복 변환, 경로 보존, 중복/누락/수식/잘못된 값, 숫자 enum과 scalar 자동 변환 거부, 덮어쓰기 보호, 콤마 값 조합/공백/중복/변환/잘못된 토큰, preset과 직접 크기 혼용 및 변환, timeout 기본값과 항목별 값 보존, 잘못된 항목별 timeout 거부, 기존 Excel 3열 호환.
 - payload 테스트 21개: 12개 preset CT/PS 조합과 8개 직접 크기 CT/PS 조합의 정확한 byte 크기와 형식 유효성, 무작위 데이터.
 - payload 크기 파서 테스트 27개: preset, 단위/대소문자 별칭, 바이트 수, 경로 토큰, 최솟값/최댓값, 잘못된 크기 및 곱셈 오버플로 거부.
-- curl 통합 테스트 9개: 실제 curl의 60개 preset CT/TE/PS 조합, gzip 복원, chunked 헤더, 원본 응답, Excel 링크, HTTP 실패 후 계속 실행, timeout/연결 거부/실행 파일 누락, 비 UTF-8 응답 헤더, 콤마 값에서 확장된 8개 요청의 순서와 결과, 20K/1M의 24개 전송 조합, 기본 3초 종료와 항목별 timeout 우선 적용 및 상위 설정 상속.
+- curl 통합 테스트 9개: 실제 curl의 96개 preset CT/TE/PS 조합, gzip·deflate·compress·Brotli 복원, chunked 헤더, 원본 응답, Excel 링크, HTTP 실패 후 계속 실행, timeout/연결 거부/실행 파일 누락, 비 UTF-8 응답 헤더, 콤마 값에서 확장된 8개 요청의 순서와 결과, 20K/1M의 24개 전송 조합, 기본 3초 종료와 항목별 timeout 우선 적용 및 상위 설정 상속.
 - CLI 테스트 5개: 샘플 생성, 양방향 변환, 옵션 오류, 종료 코드, malformed Excel 설정 오류, application/config 모드 제약.
 - JVM 종료 테스트 2개: 첫 요청 중 중단, 완료 요청 후 중단 시 결과 Excel/중단 행/파일 링크 저장과 이후 요청 중지.
 - 결과 Excel 테스트 1개: 지정된 11개 열 순서와 각 필드의 값/링크/숫자 셀 매핑.
@@ -19,6 +33,8 @@
 - 파일 버튼/팝업 테스트 4개: 의미 접두사·파일명, 버튼 클릭의 경로 전달, 결과 교체 시 초기화, 텍스트/Excel 미리보기와 크기 제한.
 - JSON 응답 테스트 9개: HTTP 오류 응답 pretty 저장, 객체/배열 들여쓰기, 숫자 정밀도·중복 키 보존, JSON이 아닌 본문과 불완전한 문서의 원문 유지.
 - 전체/선택실행 테스트 3개: 모든 케이스의 순차 실행, HTTP 실패 후 계속 실행, 진행 로그·완료 요약·결과 버튼과 Excel 행, 중복 시작 방지, 초기 실행 오류 처리, 검색 결과만 중복과 순서를 보존하여 실행하고 curl 추가 인수를 전달.
+- 실행 요약 편집 테스트 2개: 중복 케이스 분리, 단건·전체·검색 결과 실행에 변경값 전달, 활성 셀 확정, 잘못된 입력의 원자성, 원본 설정파일 보존·재로딩, 경로 편집으로 검색 결과에서 제외되는 요청의 단건 실행.
+- 추가 압축 테스트 5개: 소문자 설정/Excel 변환/그리드 선택, deflate·compress·Brotli의 1 MiB 실제 업로드·Content-Encoding·Content-Length·저장 본문·독립 복원, Unix .Z 빈 입력/단일 byte/반복/난수 경계값.
 
 독립적인 코드 리뷰에서 발견한 입력 자동 변환, 응답 헤더 인코딩, malformed Excel 오류 분류와 빌드 Java 환경 복원 문제를 먼저 재현한 뒤 수정했습니다. 남겨 둔 리뷰 항목은 없습니다.
 

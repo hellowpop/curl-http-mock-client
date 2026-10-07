@@ -104,13 +104,13 @@ class RequestSearchTest {
             assertEquals(0, panel.requests.getModel().getSize());
             assertNull(panel.requests.getSelectedValue());
             assertFalse(panel.execute.isEnabled());
-            assertTrue(panel.summary.getText().contains("검색 결과가 없습니다"));
+            assertTrue(panel.summaryStatus.getText().contains("검색 결과가 없습니다"));
             panel.clearSearch.doClick();
             assertEquals(3, panel.requests.getModel().getSize());
             assertTrue(panel.execute.isEnabled());
             panel.search.setText("GZ/PS_LG");
             assertEquals(1, panel.requests.getModel().getSize());
-            assertTrue(panel.summary.getText().contains("/CT_json/TE_GZ/PS_LG"));
+            assertTrue(RuntimeSummaryTest.value(panel.summary, "URL").contains("/CT_json/TE_GZ/PS_LG"));
             panel.search.setText(".*");
             assertEquals(0, panel.requests.getModel().getSize(), "search is literal, not regex");
         });

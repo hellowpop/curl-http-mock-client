@@ -8,6 +8,7 @@ Java 21 CLI 또는 `--application` Swing 화면에서 외부 curl 프로세스�
 |---|---|
 | `Main` | picocli 옵션, 실행/샘플/변환 모드, 종료 코드 |
 | `ApplicationPanel` | Swing 요청 검색·선택 요약, 비동기 단건 실행, 전체/검색 결과 실행 모달 연결 및 결과 표시 |
+| `RuntimeSummary` | 실행값 편집 그리드, 검증된 메모리 설정 snapshot 생성 |
 | `BatchProgressPanel` | 모달 전체/선택실행 팝업의 실시간 실행 로그, 완료 요약, 결과 Excel 보기 |
 | `RequestListRenderer` | 원래 케이스 번호 유지, 검색어 일치 부분 강조 |
 | `RequestSearch` | 공백/콤마 검색 토큰 분리 규칙 공유 |
@@ -18,6 +19,7 @@ Java 21 CLI 또는 `--application` Swing 화면에서 외부 curl 프로세스�
 | `PayloadGenerator` | 정확한 크기의 JSON/XML/form/multipart 본문 생성 |
 | `CurlArguments` | 추가 curl 옵션의 종류, 인수 개수 및 충돌 검증 |
 | `CurlRunner` | curl 인수 구성, ProcessBuilder 실행, 본문 전송 및 응답/로그 수집 |
+| `RequestCompression`, `UnixCompress` | gzip·zlib deflate·Unix LZW compress·Brotli 전송 본문 생성 |
 | `JsonResponse` | 유효한 JSON 응답의 스트리밍 pretty 저장, 숫자/중복 필드 보존 |
 | `BatchExecutor`, `RunControl` | 순차 실행, Ctrl-C 취소와 부분 결과 저장 |
 | `ResultWorkbook`, `ExcelStyles` | 결과 Excel과 파일 링크, 서식 |
@@ -27,6 +29,14 @@ Java 21 CLI 또는 `--application` Swing 화면에서 외부 curl 프로세스�
 `Main`의 `--application` 옵션은 `--config` 실행 경로에서 검증된 YAML/Excel 설정을 `ApplicationPanel`에 전달한다. 샘플/변환 모드와는 함께 사용할 수 없다. 추가 `--curl-arg`는 CLI와 같은 순서로 병합된다. 창은 Swing EDT에서 열고, GUI 시작 성공 시 `Main.main`은 `System.exit`를 호출하지 않아 창을 유지한다. headless 환경에서는 실행 오류로 종료한다.
 
 `ApplicationPanel`은 수평 `JSplitPane`의 왼쪽에 단일 선택 `JList`를, 오른쪽 수직 `JSplitPane`에 요약과 결과를 배치한다. 설정에서 확장된 요청을 순서대로 모두 표시하며 첫 항목을 기본 선택한다. 요약은 항목별 timeout의 상위 설정 상속까지 반영한다.
+
+### 실행 요약 그리드와 메모리 업데이트
+
+`RuntimeSummary`는 `항목 / 실행값 / 적용 범위` 열을 가진 편집 가능한 `JTable`이다. Method는 POST/PUT/PATCH, Content-Type과 Transfer-Encoding은 콤보박스로 선택한다. Payload는 SM/CM/LG 또는 4K·1M 같은 기존 크기 형식을 사용한다. timeout은 초 단위 양의 정수이며, 기존 상속값과 같은 값을 유지하면 null 상속 상태도 보존한다. URL과 Payload bytes는 자동 계산되는 읽기 전용 행이다. Endpoint URL은 요청 경로가 붙기 전의 base URL이다. Curl arguments는 JSON 문자열 배열로 입력하며 기존 지원 옵션 검증을 적용한다.
+
+Method, Endpoint URL, Curl, Curl arguments, Output은 전체 요청의 공통값이다. Content-Type, Transfer-Encoding, Payload, 두 timeout은 선택 요청에만 적용한다. `업데이트` 또는 실행 버튼은 편집 중인 셀을 확정하고 전체 입력을 검증한 후 새 `ClientConfig`와 요청 목록을 메모리에 반영한다. 오류가 있으면 기존 설정을 그대로 유지하고 그리드 아래 입력 오류를 표시하며 실행하지 않는다. 업데이트한 경로는 검색과 목록에도 반영한다. 동일한 설정의 중복 케이스는 원본 인덱스로 구분하여 선택한 케이스만 변경한다. 업데이트 전 다른 요청을 선택하면 미적용 입력은 버린다.
+
+단건·선택·전체 실행은 업데이트된 설정의 snapshot을 사용한다. 단건 실행에서 경로 변경으로 현재 검색 결과에서 제외되더라도 편집했던 요청을 실행한다. 실행 중에는 그리드와 업데이트 버튼을 잠그고 완료 후 복원한다. 파일 저장·설정 변환 API를 호출하지 않으므로 YAML/Excel 설정파일은 변경하지 않는다. application을 다시 실행하면 설정파일의 원래 값을 읽는다.
 
 실행 버튼은 선택 항목 하나로 구성한 `ClientConfig`를 `SwingWorker`에서 `BatchExecutor`에 전달한다. 네트워크/파일 작업은 백그라운드에서 진행하고 화면 갱신은 EDT에서 처리한다. 실행 중에는 목록과 버튼을 비활성화하여 중복 실행을 방지하며 성공/실패 뒤 복원한다. Excel, 요청/응답 파일, curl 로그 및 종료 시 부분 결과 저장은 기존 실행 경로를 재사용한다. 응답 미리보기는 최대 64 KiB로 제한한다.
 
@@ -57,6 +67,22 @@ Java 21 CLI 또는 `--application` Swing 화면에서 외부 curl 프로세스�
 `CurlRunner`는 curl이 정상 종료하고 취소되지 않은 응답에 `JsonResponse.format`을 적용한다. 요청 CT나 응답 Content-Type 헤더에 의존하지 않고 본문 전체가 하나의 유효한 JSON 문서인지 판별한다. HTTP 4xx/5xx 응답도 curl 종료 코드가 0이면 동일하게 처리한다. 객체와 배열을 2칸 들여쓰기, LF 줄바꿈, UTF-8로 `response_payload.txt`에 저장한다. 화면과 팝업은 저장된 파일을 읽으므로 동일한 pretty 형식을 표시한다.
 
 Jackson 스트리밍 parser/generator로 임시 파일에 작성하며 숫자는 원래 토큰 문자열로 기록하여 정밀도와 지수 표현을 유지하고 중복 필드도 보존한다. 전체 문서의 파싱과 끝 검증이 성공한 뒤 파일을 교체한다. JSON이 아닌 본문, 바이너리, 잘못되거나 불완전한 JSON, 복수 문서 및 curl 실패/취소 응답은 기존 bytes를 유지한다. JSON 응답 파일은 들여쓰기 적용으로 전송 bytes와 달라질 수 있으며 응답 헤더는 전송 당시 값을 유지한다.
+
+## Transfer-Encoding 분류와 압축 본문
+
+### 전체 조합 샘플 설정
+
+`samples/config-all-cases.yml`과 `samples/config-all-cases.xlsx`는 4개 Content-Type(json/xml/form/multipart), 8개 Transfer-Encoding(NA/GZ/CSB/CCB/CLB/DEFLATE/COMPRESS/BR), 3개 기본 Payload 크기(SM/CM/LG)의 96개 조합을 각각 한 번 포함한다. YAML과 Excel의 요청 순서 및 설정값은 동일하다. 메서드는 POST, endpoint는 `http://localhost:8080`, 두 timeout은 3초, 출력은 설정파일 위치 기준 `results`다. 직접 지정하는 임의 크기와 메서드·timeout의 변형은 이 기본 조합에 포함하지 않는다.
+
+`java -jar target/curl-http-mock-client.jar --config samples/config-all-cases.yml`로 전체 실행하거나 `--application` 옵션으로 화면을 열고 `전체실행`을 누른다. 실제 서버 주소는 실행 전에 파일에서 지정하거나 application의 Endpoint URL을 업데이트한다. 샘플 생성은 요청을 전송하지 않는다.
+
+`TransferEncoding`의 기존 NA/GZ/CSB/CCB/CLB에 DEFLATE, COMPRESS, BR을 추가했다. 설정과 application 그리드 모두 지원한다. 설정 입력은 대소문자를 구분하지 않으며 Excel/YAML 출력과 요청 경로는 대문자 enum 이름을 유지한다. 새 생성 샘플은 4 CT × 8 TE × 3 PS = 96건이다. 기존 설정파일의 케이스는 파일에 적힌 항목만 사용한다.
+
+GZ/DEFLATE/COMPRESS/BR은 `Content-Encoding: gzip/deflate/compress/br`과 압축 본문의 Content-Length로 전송한다. CSB/CCB/CLB의 HTTP chunked 처리와 구분한다. DEFLATE는 zlib wrapper를 포함한 `DeflaterOutputStream`, COMPRESS는 Unix `.Z` LZW(비블록 모드, 코드 폭 9~16비트), BR은 [Brotli4j 1.23.0](https://github.com/hyperxpro/Brotli4j)의 Brotli encoder(quality 4)를 사용한다. `UnixCompress`는 코드 폭 변경 시 8개 코드 그룹 정렬과 사전 포화 시 기존 사전 유지를 처리한다. Commons Compress의 독립 `.Z` decoder로 결과를 검증한다.
+
+`RequestCompression`은 원문 `request_payload.txt`와 별도로 실제 전송 본문을 `.gz`, `.deflate`, `.Z`, `.br`에 기록한다. `CurlRunner`는 enum의 헤더값과 확장자를 사용해 압축 파일과 curl 헤더를 연결한다. Payload 크기는 압축 전 원문의 정확한 크기이며 전송 크기는 달라진다. 설정파일 저장 경로는 호출하지 않으므로 application에서 바꾼 값은 기존처럼 현재 실행 동안만 유지된다.
+
+Brotli4j의 Windows·Linux·macOS x64/ARM64 네이티브 라이브러리를 runtime 의존성으로 명시하고 shaded JAR에 함께 포함한다. 기존 ServicesResourceTransformer가 플랫폼 provider를 합치며 실행 환경에 맞는 라이브러리를 선택한다. 그 외 아키텍처에서는 Brotli4j가 제공하는 해당 native 의존성을 추가해 빌드한다. Windows에서는 Brotli4j가 요구하는 Microsoft Visual C++ Redistributable이 필요하다. 네이티브 라이브러리 로딩 실패는 IOException으로 전달해 화면의 실행 오류와 기존 부분 결과 저장 흐름을 사용한다. 실제 압축·전송 및 패키지 실행은 Windows x64에서 검증한다.
 
 ## curl 추가 파라미터
 
@@ -98,6 +124,15 @@ java -jar target/curl-http-mock-client.jar --config samples/config.yml --curl-ar
 `--location`을 지정하면 리디렉션을 추적하고 `--compressed`를 지정하면 응답 압축을 해제한다. 기본 동작에는 두 옵션을 적용하지 않는다. curl 옵션 의미는 [공식 man page](https://curl.se/docs/manpage.html)를 따른다.
 
 ## 구조 변경 내역
+
+- 2026-10-07: 문서의 현재 동작 설명을 실행 요약 편집·추가 압축 방식·96건 전체 조합 샘플에 맞췄다. `RuntimeSummary` 구성 요소와 검증 범위를 명시하고 CLI 샘플 도움말을 전체 preset 조합 설명으로 변경했다.
+- 2026-10-07: 문서 정리 후 Java 21 Maven verify에서 194개 테스트의 실패·오류·생략 0건을 확인했다. 전체 조합 샘플의 동등성·중복 없음과 최종 JAR의 세 압축 방식 요청을 다시 검증했다. 로그는 `verification/docs-push-20261007.log`에 기록한다.
+
+- 2026-10-07: `samples/config-all-cases.yml`과 `samples/config-all-cases.xlsx`를 추가했다. 기존 샘플 생성 CLI로 96개 기본 CT×TE×PS 조합을 기록하고, 설정 로더로 두 형식의 동등성·각 조합의 존재·중복 없음·유효성을 검증했다. 기존 설정파일은 유지했다.
+
+- 2026-10-06: `TransferEncoding`에 DEFLATE/COMPRESS/BR과 공통 헤더·확장자 메타데이터를 추가하고 설정 입력의 대소문자를 허용했다. `RequestCompression`과 `UnixCompress`를 추가하여 본문 압축을 분리했으며 Brotli4j를 Maven 의존성에 추가했다. `AdditionalEncodingsTest`에서 YAML/Excel 왕복, 그리드 선택, 세 압축 방식의 실제 curl 전송·독립 복원과 `.Z` 경계값을 검증한다. 생성 샘플 및 전체 조합 통합 테스트를 96건으로 확장했다.
+
+- 2026-10-06: `RuntimeSummary` 편집 그리드와 업데이트 버튼을 추가했다. `ApplicationPanel`은 검증된 설정 snapshot을 메모리에서 교체하고 검색 목록 및 모든 실행 경로에 반영한다. 공통 설정과 선택 요청 설정의 적용 범위를 표시하며 설정파일은 저장하지 않는다. `RuntimeSummaryTest`에서 실제 HTTP 전송, 단건·선택·전체 실행, 중복 요청 격리, 셀 편집 확정, 입력 오류의 원자성 및 원본 파일 보존/재로딩을 검증한다.
 
 - 2026-10-06: `ClientConfig`에 불변 `curlArguments` 목록을 추가했다. 기존 7개 인수 생성자는 빈 목록을 전달하도록 유지하고, 결과 디렉토리 변경 시에도 추가 인수를 보존한다.
 - 2026-10-06: `CurlArguments` 검증 클래스를 추가했다. 지원 목록과 인수 개수를 명시하여 사용자 인수가 프로그램의 요청/로그 설정을 변경하는 것을 차단한다.

@@ -2,7 +2,6 @@ package dev.curlmock;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
-import java.awt.Font;
 import java.awt.GraphicsEnvironment;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -19,9 +18,11 @@ import javax.swing.event.DocumentListener;
 
 /** Swing view over the existing configuration and batch execution pipeline. */
 final class ApplicationPanel extends JPanel {
-    private final ClientConfig config;
+    private ClientConfig config;
     final JList<PayloadType> requests;
-    final JTextArea summary = textArea();
+    final RuntimeSummary summary = new RuntimeSummary();
+    final JButton updateSummary = new JButton("업데이트");
+    final JLabel summaryStatus = new JLabel("변경값은 현재 application에서만 유지됩니다.");
     final ResultPane result = new ResultPane(path -> FileContentPopup.open(this, path));
     final JButton execute = new JButton("실행");
     final JButton executeAll = new JButton("전체실행");
@@ -65,13 +66,19 @@ final class ApplicationPanel extends JPanel {
         batchButtons.add(executeAll);
         left.add(batchButtons, BorderLayout.SOUTH);
         left.setMinimumSize(new Dimension(220, 100));
-        var top = section("실행 요약", new JScrollPane(summary));
+        var summaryScroll = new JScrollPane(summary);
+        summaryScroll.setColumnHeaderView(summary.getTableHeader());
+        var top = section("실행 요약", summaryScroll);
         var buttons = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.RIGHT));
+        buttons.add(updateSummary);
         buttons.add(execute);
-        top.add(buttons, BorderLayout.SOUTH);
+        var summaryFooter = new JPanel(new BorderLayout());
+        summaryFooter.add(summaryStatus, BorderLayout.CENTER);
+        summaryFooter.add(buttons, BorderLayout.EAST);
+        top.add(summaryFooter, BorderLayout.SOUTH);
         var right = new JSplitPane(JSplitPane.VERTICAL_SPLIT, top, section("실행 결과", result));
         right.setResizeWeight(0.4);
-        right.setDividerLocation(240);
+        right.setDividerLocation(420);
         var split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, left, right);
         split.setResizeWeight(0.3);
         split.setDividerLocation(340);
@@ -89,6 +96,7 @@ final class ApplicationPanel extends JPanel {
             search.requestFocusInWindow();
         });
         execute.addActionListener(event -> runSelected());
+        updateSummary.addActionListener(event -> applySummary());
         executeAll.addActionListener(event -> runBatch(false));
         executeFiltered.addActionListener(event -> runBatch(true));
         requests.setSelectedIndex(0);
@@ -144,24 +152,36 @@ final class ApplicationPanel extends JPanel {
     private void showSelection() {
         var type = requests.getSelectedValue();
         execute.setEnabled(type != null);
-        summary.setText(type == null ? "검색 결과가 없습니다. 검색어를 변경하거나 취소하세요." :
-                "Method: " + config.method()
-                + "\nURL: " + config.endpointUrl().replaceAll("/+$", "") + type.path()
-                + "\nContent-Type: " + type.contentType()
-                + "\nTransfer-Encoding: " + type.transferEncoding()
-                + "\nPayload: " + type.payloadSize() + " (" + type.payloadSize().bytes() + " bytes)"
-                + "\nConnect timeout: " + type.effectiveConnectTimeoutSeconds(config) + " s"
-                + "\nRequest timeout: " + type.effectiveRequestTimeoutSeconds(config) + " s"
-                + "\nCurl: " + config.curlExecutable()
-                + "\nCurl arguments: " + config.curlArguments()
-                + "\nOutput: " + Path.of(config.outputDirectory()).toAbsolutePath().normalize());
-        summary.setCaretPosition(0);
+        updateSummary.setEnabled(type != null);
+        summary.setEnabled(type != null);
+        summary.show(config, type);
+        summaryStatus.setText(type == null ? "검색 결과가 없습니다. 검색어를 변경하거나 취소하세요."
+                : "변경값은 현재 application에서만 유지됩니다. (Payload: SM/CM/LG 또는 4K 등)");
         result.setText(type == null ? "" : "실행 버튼을 누르면 선택한 요청의 결과가 표시됩니다.");
     }
 
+    private boolean applySummary() {
+        if (requests.getSelectedIndex() < 0) return true;
+        if (!summary.isEnabled()) return false;
+        try {
+            int originalIndex = visibleIndices.get(requests.getSelectedIndex());
+            var updated = summary.updated(config, originalIndex);
+            config = updated;
+            filterRequests();
+            showSelection();
+            summaryStatus.setText("업데이트 완료 — 현재 application에서만 유효합니다.");
+            return true;
+        } catch (IllegalArgumentException e) {
+            summaryStatus.setText("입력 오류: " + e.getMessage());
+            return false;
+        }
+    }
+
     private void runSelected() {
-        var type = requests.getSelectedValue();
-        if (type == null || !execute.isEnabled()) return;
+        if (requests.getSelectedValue() == null || !execute.isEnabled()) return;
+        int originalIndex = visibleIndices.get(requests.getSelectedIndex());
+        if (!applySummary()) return;
+        var type = config.payloadTypes().get(originalIndex);
         setRunning(true);
         result.setText("실행 중…\n" + type.path());
         var selected = new ClientConfig(config.endpointUrl(), config.method(), config.curlExecutable(),
@@ -196,6 +216,8 @@ final class ApplicationPanel extends JPanel {
         clearSearch.setEnabled(!running && !search.getText().isEmpty());
         execute.setEnabled(!running && requests.getSelectedValue() != null);
         executeAll.setEnabled(!running);
+        summary.setEnabled(!running && requests.getSelectedValue() != null);
+        updateSummary.setEnabled(!running && requests.getSelectedValue() != null);
         updateFilteredButton();
     }
 
@@ -217,6 +239,7 @@ final class ApplicationPanel extends JPanel {
 
     private void runBatch(boolean filtered) {
         if (!(filtered ? executeFiltered : executeAll).isEnabled()) return;
+        if (!applySummary() || !(filtered ? executeFiltered : executeAll).isEnabled()) return;
         var panel = createBatch(filtered);
         setRunning(true);
         try {
@@ -245,14 +268,6 @@ final class ApplicationPanel extends JPanel {
             return new String(bytes, 0, Math.min(bytes.length, 65536), StandardCharsets.UTF_8)
                     + (bytes.length > 65536 ? "\n[미리보기는 64 KiB까지 표시합니다. 전체 응답은 파일을 확인하세요.]" : "");
         }
-    }
-
-    private static JTextArea textArea() {
-        var area = new JTextArea();
-        area.setEditable(false);
-        area.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 13));
-        area.setMargin(new java.awt.Insets(8, 8, 8, 8));
-        return area;
     }
 
     private static JPanel section(String title, java.awt.Component content) {

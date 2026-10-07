@@ -33,11 +33,18 @@ java -jar target/curl-http-mock-client.jar --excel-to-yml sample.xlsx --output c
 java -jar target/curl-http-mock-client.jar --yml-to-excel sample.yml --output converted.xlsx
 ```
 
-모드는 한 번에 하나만 지정합니다. 기존 샘플/변환 파일을 덮어쓰려면 `--overwrite`를 명시합니다. 실제 endpoint에 맞게 `endpointUrl`을 수정한 뒤 실행하세요. 샘플은 localhost:8080의 전체 60개 조합입니다. 이 프로그램은 서버를 시작하지 않습니다.
+모드는 한 번에 하나만 지정합니다. 기존 샘플/변환 파일을 덮어쓰려면 `--overwrite`를 명시합니다. 실제 endpoint에 맞게 `endpointUrl`을 수정한 뒤 실행하세요. 새로 생성하는 샘플은 localhost:8080의 전체 96개 조합입니다. 기존 설정파일은 파일에 적힌 요청 목록을 사용합니다. 이 프로그램은 서버를 시작하지 않습니다.
 
 종료 코드: **0** 성공, **1** HTTP/curl 실행 또는 결과 저장 실패, **2** 옵션/설정 오류. 개별 요청 실패는 파일과 결과 행에 기록하고 다음 요청을 실행합니다. 재시도는 하지 않습니다. 리디렉션은 추가 인수에 `--location`을 지정하면 추적합니다. 200~399 응답은 성공으로 분류합니다.
 
 ### Swing application mode
+
+전체 기본 조합 설정은 [YAML](samples/config-all-cases.yml) 또는 [Excel](samples/config-all-cases.xlsx)을 사용하세요. 4개 Content-Type × 8개 Transfer-Encoding × 3개 기본 크기(SM/CM/LG), 총 96건입니다. 기본 endpoint는 `http://localhost:8080`이며 실제 서버 주소로 변경한 뒤 실행합니다.
+
+```powershell
+java -jar target/curl-http-mock-client.jar --config samples/config-all-cases.yml
+java -jar target/curl-http-mock-client.jar --application --config samples/config-all-cases.yml
+```
 
 ```powershell
 java -jar target/curl-http-mock-client.jar --application --config samples/config.yml
@@ -45,6 +52,10 @@ java -jar target/curl-http-mock-client.jar --application --config samples/config
 ```
 
 `--application`은 `--config`와 함께 사용합니다. 왼쪽에는 설정 파일에서 확장된 각 요청이 표시됩니다. 요청을 선택하면 오른쪽 위에 URL, 메서드, 본문 크기, 전송 방식, 적용되는 timeout과 curl 추가 인수가 표시됩니다. **실행** 버튼은 선택한 요청 한 건만 실행합니다. 창을 열거나 목록을 선택하는 것만으로 요청을 전송하지 않습니다.
+
+**실행 요약**은 `항목 / 실행값 / 적용 범위` 그리드입니다. 실행값 셀을 편집하고 **업데이트**를 누르면 현재 application의 메모리에 반영합니다. 메서드·Endpoint URL·curl 실행파일·추가 인수·출력 디렉토리는 전체 요청에, Content-Type·Transfer-Encoding·본문 크기·timeout은 선택한 요청에 적용합니다. Endpoint URL은 기본 URL이며 최종 URL과 본문 bytes는 자동 계산합니다. Payload는 `SM/CM/LG` 또는 `4K`, `1M` 등을, timeout은 초 단위 양의 정수를 입력합니다. Curl arguments는 `["--insecure", "--header", "X-Test: value"]`처럼 JSON 문자열 배열로 입력합니다.
+
+실행 버튼도 현재 편집값을 검증하고 반영하며 단건·선택·전체 실행에 변경값을 사용합니다. 입력 오류는 그리드 아래 표시하고 업데이트·실행을 중단합니다. 업데이트 전에 다른 요청을 선택하면 미적용 입력을 버립니다. **변경값은 현재 application 실행 동안만 유지하며 설정파일(YAML/Excel)은 수정하지 않습니다.** application을 다시 실행하면 파일의 원래 값으로 시작합니다. 요청 실행 중에는 편집과 업데이트를 비활성화합니다.
 
 실행은 백그라운드에서 진행하며 실행 중에는 목록과 버튼을 잠시 비활성화합니다. 오른쪽 아래에 HTTP 상태, curl 종료 코드, 소요 시간, 오류, 요청/응답 헤더와 응답 본문을 표시합니다. 응답 본문은 UTF-8로 최대 64 KiB를 미리보기하며 전체 저장 내용은 응답 본문 파일에서 확인할 수 있습니다. JSON 응답은 들여쓰기한 형식으로 저장·표시합니다. 실행할 때마다 기존 `outputDirectory`에 별도의 결과 Excel과 트랜잭션 파일을 저장합니다. 창을 닫으면 프로그램을 종료하며 진행 중인 요청은 기존 종료 훅으로 중단하고 부분 결과를 저장합니다. 그래픽 데스크톱 환경이 필요합니다.
 
@@ -181,11 +192,16 @@ java -jar target/curl-http-mock-client.jar --config samples/config.yml --curl-ar
 |---|---|
 | NA | Content-Length를 사용하는 일반 본문 |
 | GZ | gzip 본문 + Content-Encoding: gzip |
+| DEFLATE | zlib 형식의 deflate 본문 + Content-Encoding: deflate |
+| COMPRESS | Unix compress (.Z, LZW) 본문 + Content-Encoding: compress |
+| BR | Brotli 본문 + Content-Encoding: br |
 | CSB | HTTP/1.1 chunked, curl stdin 공급 블록 1,024바이트 |
 | CCB | HTTP/1.1 chunked, curl stdin 공급 블록 8,192바이트 |
 | CLB | HTTP/1.1 chunked, curl stdin 공급 블록 32,768바이트 |
 
-TE는 설정 및 경로의 분류명입니다. **GZ는 HTTP `Content-Encoding`을 사용**하며 `Transfer-Encoding: gzip`으로 보내지 않습니다. CSB/CCB/CLB는 `Transfer-Encoding: chunked`를 보내고 Content-Length를 보내지 않습니다. 공급 블록 크기는 실제 HTTP 청크/TCP 패킷 크기를 보장하지 않습니다. 서버는 HTTP/1.1 chunked 업로드를 지원해야 합니다.
+TE는 설정 및 경로의 분류명입니다. **GZ/DEFLATE/COMPRESS/BR은 HTTP `Content-Encoding`을 사용**하고 압축된 본문의 Content-Length를 전송합니다. CSB/CCB/CLB는 `Transfer-Encoding: chunked`를 보내고 Content-Length를 보내지 않습니다. 공급 블록 크기는 실제 HTTP 청크/TCP 패킷 크기를 보장하지 않습니다. 서버는 HTTP/1.1 chunked 업로드를 지원해야 합니다. 설정에서는 `deflate,compress,br`처럼 소문자도 입력할 수 있으며, application 실행 요약의 Transfer-Encoding 콤보박스에서도 선택할 수 있습니다. 요청 경로와 변환 출력은 `DEFLATE/COMPRESS/BR` 이름을 사용합니다.
+
+BR은 [Brotli4j](https://github.com/hyperxpro/Brotli4j)를 사용하며 Windows·Linux·macOS의 x64/ARM64 네이티브 라이브러리를 JAR에 포함합니다. Windows에서는 Microsoft Visual C++ Redistributable이 필요합니다. 그 외 아키텍처는 해당 Brotli4j native 의존성을 추가하여 빌드할 수 있습니다. 실제 실행 검증 환경은 Windows x64입니다.
 
 | PS 설정값 | 압축 전 entity body 크기 |
 |---|---|
@@ -206,7 +222,7 @@ payloadTypes:
 
 예시에서 `20K`는 20,480바이트, `1M`은 1,048,576바이트입니다. JSON/XML의 pretty 공백과 multipart 헤더를 포함한 압축 전 전체 본문 기준이며, 콤마로 preset과 직접 지정한 크기를 섞을 수 있습니다. endpoint는 `/PS_20K`, `/PS_1M`을 사용하며 기존 preset의 `/PS_SM`, `/PS_CM`, `/PS_LG`는 유지합니다. `20KB`/`20KiB`는 `20K`로, `1MB`/`1MiB`는 `1M`으로 정규화합니다. YAML↔Excel 변환도 직접 지정한 크기를 보존합니다. 전체 예시는 `samples/config-custom-sizes.yml`입니다.
 
-UTF-8 본문의 name/value는 매 요청 무작위 ASCII로 생성합니다. JSON/XML/form 구조와 multipart boundary/part 헤더를 포함한 전체 본문 크기를 정확히 맞춥니다. multipart는 파일 첨부 대신 무작위 name/value form-data part를 전송합니다. gzip 이후 전송 크기는 달라집니다.
+UTF-8 본문의 name/value는 매 요청 무작위 ASCII로 생성합니다. JSON/XML/form 구조와 multipart boundary/part 헤더를 포함한 전체 본문 크기를 정확히 맞춥니다. multipart는 파일 첨부 대신 무작위 name/value form-data part를 전송합니다. 압축 이후 전송 크기는 달라집니다.
 
 JSON과 XML은 줄바꿈과 2칸 들여쓰기를 사용하는 pretty 형태로 생성합니다. 전송되는 본문과 `request_payload.txt` 모두 같은 pretty 본문이며, 공백/줄바꿈을 포함해 지정한 크기를 정확히 유지합니다. form URL encoding은 표준 `name=value&...` 구조를, multipart는 표준 CRLF/boundary 구조를 사용합니다.
 
@@ -224,11 +240,14 @@ JSON과 XML은 줄바꿈과 2칸 들여쓰기를 사용하는 pretty 형태로 �
     <uuid>_request_headers.txt
     <uuid>_response_headers.txt
     <uuid>_request_payload.gz     # GZ 요청의 압축된 실제 entity body
+    <uuid>_request_payload.deflate # DEFLATE 요청의 zlib entity body
+    <uuid>_request_payload.Z      # COMPRESS 요청의 Unix LZW entity body
+    <uuid>_request_payload.br     # BR 요청의 Brotli entity body
 ```
 
 실행 단위 UUID와 트랜잭션 UUID는 별개입니다. 날짜는 실행 머신의 로컬 시간입니다. curl 로그에는 인수 배열, stdin 블록 크기, 입력/출력 파일 경로, 실제 verbose 입출력 헤더, stdout, curl 종료 코드, HTTP 상태, 소요 시간과 실패 원인이 들어갑니다. curl rc 설정은 무시합니다. 환경의 proxy 설정과 기본 TLS 인증서 검증은 curl의 기본 동작을 따릅니다.
 
-`request_payload.txt`는 압축 전 entity body이고 GZ의 전송 본문은 `.gz`에 추가 저장합니다. `response_payload.txt`는 본문 전체가 유효한 JSON이면 객체와 배열을 2칸 들여쓰기한 UTF-8 pretty 형식으로 저장합니다. 실행 결과와 응답 본문 팝업도 저장된 형식으로 표시합니다. Content-Type 헤더와 무관하게 JSON을 판별하며 HTTP 오류 응답의 JSON도 포맷합니다. JSON이 아니거나 파싱할 수 없는 본문, curl 실패/취소 시에는 원래 bytes를 저장하므로 이름이 `.txt`여도 바이너리일 수 있습니다. 기본적으로 응답을 압축 해제하지 않으며, 추가 인수에 `--compressed`를 지정하면 curl이 압축 해제한 응답을 저장합니다.
+`request_payload.txt`는 압축 전 entity body이고 실제 압축 전송 본문은 TE에 따라 `.gz`, `.deflate`, `.Z`, `.br`에 추가 저장합니다. `response_payload.txt`는 본문 전체가 유효한 JSON이면 객체와 배열을 2칸 들여쓰기한 UTF-8 pretty 형식으로 저장합니다. 실행 결과와 응답 본문 팝업도 저장된 형식으로 표시합니다. Content-Type 헤더와 무관하게 JSON을 판별하며 HTTP 오류 응답의 JSON도 포맷합니다. JSON이 아니거나 파싱할 수 없는 본문, curl 실패/취소 시에는 원래 bytes를 저장하므로 이름이 `.txt`여도 바이너리일 수 있습니다. 기본적으로 응답을 압축 해제하지 않으며, 추가 인수에 `--compressed`를 지정하면 curl이 압축 해제한 응답을 저장합니다.
 
 결과 Excel의 `Results` 시트 열:
 
@@ -250,8 +269,8 @@ JSON과 XML은 줄바꿈과 2칸 들여쓰기를 사용하는 pretty 형태로 �
 
 `ClientConfig`와 enum은 공통 모델, `ConfigFiles`/`ExcelConfigCodec`은 파일 입출력, `PayloadGenerator`는 본문 생성, `CurlRunner`는 프로세스 실행, `BatchExecutor`/`ResultWorkbook`은 결과 저장, `Main`은 CLI를 담당합니다.
 
-테스트는 12개 CT/PS 조합의 형식과 정확한 크기, 설정 왕복 변환과 오류, 실제 curl의 60개 CT/TE/PS 전송, gzip 복원, chunked 헤더, 바이너리 응답, timeout/연결 거부/HTTP 오류, 링크와 CLI 옵션을 검증합니다. 별도 JVM을 종료시키는 테스트로 첫 요청 중 중단과 완료 요청 후 중단의 결과 저장을 검증합니다.
+테스트는 12개 CT/PS 조합의 형식과 정확한 크기, 설정 왕복 변환과 오류, 실제 curl의 96개 CT/TE/PS 전송, gzip·deflate·compress·Brotli 복원, chunked 헤더, 바이너리 응답, timeout/연결 거부/HTTP 오류, 링크와 CLI 옵션을 검증합니다. 별도 JVM을 종료시키는 테스트로 첫 요청 중 중단과 완료 요청 후 중단의 결과 저장을 검증합니다.
 
-최신 검증은 **157개 테스트 통과**입니다. curl 추가 인수의 YAML·Excel 변환과 실제 헤더 전송, CLI 병합 및 충돌 거부, 3초 기본값, 항목별 timeout, 기존 Excel 호환을 포함합니다. 최종 JAR의 추가 인수 적용도 NA·gzip·chunked 요청 3건으로 확인했습니다. 자세한 결과는 [검증 문서](docs/verification.md), 변경 이력은 [CHANGELOG](CHANGELOG.md), 구성과 구조 변경 내역은 [프로젝트 기술 문서](project.md)를 참고하세요.
+최신 검증은 **194개 테스트 통과**입니다. application 실행 요약의 메모리 편집과 입력 검증, curl 추가 인수, YAML·Excel 변환, 기본값/항목별 timeout, 기존 Excel 호환을 포함합니다. 최종 JAR의 deflate·compress·Brotli 요청 3건도 별도 JVM에서 전송하고 독립 decoder로 원문을 복원했습니다. 자세한 결과는 [검증 문서](docs/verification.md), 변경 이력은 [CHANGELOG](CHANGELOG.md), 구성과 구조 변경 내역은 [프로젝트 기술 문서](project.md)를 참고하세요.
 
 라이브러리는 공식 배포 정보를 확인해 고정했습니다: [picocli 4.7.7](https://picocli.info/), [Jackson 2.21.7 LTS](https://github.com/FasterXML/jackson/wiki/Jackson-Release-2.21), [Apache POI 5.5.1](https://poi.apache.org/), [Logback 1.6.5](https://logback.qos.ch/news.html). POI의 Log4j API 로그는 `log4j-to-slf4j`를 통해 Logback으로 모읍니다. curl 전송 옵션은 [공식 man page](https://curl.se/docs/manpage.html)를 기준으로 구성했습니다.

@@ -19,8 +19,8 @@ public final class Main implements Callable<Integer> {
 
     static final class Mode {
         @Option(names = "--config", description = "Execute payloadTypes from a YAML or Excel configuration.") Path config;
-        @Option(names = "--sample-excel", description = "Write a 60-scenario sample Excel configuration.") Path sampleExcel;
-        @Option(names = "--sample-yml", description = "Write a 60-scenario sample YAML configuration.") Path sampleYml;
+        @Option(names = "--sample-excel", description = "Write a sample Excel configuration with all preset combinations.") Path sampleExcel;
+        @Option(names = "--sample-yml", description = "Write a sample YAML configuration with all preset combinations.") Path sampleYml;
         @Option(names = "--excel-to-yml", description = "Convert Excel configuration to YAML; requires --output.") Path excelToYml;
         @Option(names = "--yml-to-excel", description = "Convert YAML configuration to Excel; requires --output.") Path ymlToExcel;
     }

@@ -10,7 +10,6 @@ import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
-import java.util.zip.GZIPOutputStream;
 
 final class CurlRunner {
     private static final Pattern STATUS = Pattern.compile("CURLMOCK_HTTP_STATUS:(\\d{3})");
@@ -28,9 +27,9 @@ final class CurlRunner {
         Files.writeString(responseHeadersFile, "");
         Files.writeString(stdoutFile, "");
         Path wireBody = request;
-        if (type.transferEncoding() == TransferEncoding.GZ) {
-            wireBody = artifact(directory, uuid, "request_payload.gz");
-            try (var gzip = new GZIPOutputStream(Files.newOutputStream(wireBody))) { gzip.write(payload.body()); }
+        if (type.transferEncoding().contentEncoding() != null) {
+            wireBody = artifact(directory, uuid, "request_payload." + type.transferEncoding().extension());
+            RequestCompression.write(type.transferEncoding(), payload.body(), wireBody);
         }
         String url = config.endpointUrl().replaceAll("/+$", "") + type.path();
         int connectTimeout = type.effectiveConnectTimeoutSeconds(config);
@@ -42,7 +41,8 @@ final class CurlRunner {
                 "--write-out", "\nCURLMOCK_HTTP_STATUS:%{http_code}\n", "--header", "Content-Type: " + payload.contentType(), "--header", "Expect:"));
         if (type.transferEncoding().chunked()) command.addAll(List.of("--header", "Transfer-Encoding: chunked", "--header", "Content-Length:", "--upload-file", "-"));
         else {
-            if (type.transferEncoding() == TransferEncoding.GZ) command.addAll(List.of("--header", "Content-Encoding: gzip"));
+            if (type.transferEncoding().contentEncoding() != null)
+                command.addAll(List.of("--header", "Content-Encoding: " + type.transferEncoding().contentEncoding()));
             command.addAll(List.of("--data-binary", "@" + wireBody));
         }
         command.addAll(config.curlArguments());

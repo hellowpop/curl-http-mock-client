@@ -55,10 +55,10 @@ class ApplicationPanelTest {
                 panel.requests.setSelectedIndex(1);
                 panel.search.setText("xml");
                 assertEquals(1, panel.requests.getModel().getSize());
-                assertTrue(panel.summary.getText().contains("/CT_xml/TE_GZ/PS_SM"));
-                assertTrue(panel.summary.getText().contains("2 s"));
-                assertTrue(panel.summary.getText().contains("5 s"));
-                assertTrue(panel.summary.getText().contains("X-Test: app"));
+                assertTrue(RuntimeSummaryTest.value(panel.summary, "URL").contains("/CT_xml/TE_GZ/PS_SM"));
+                assertEquals("2", RuntimeSummaryTest.value(panel.summary, "Connect timeout (s)"));
+                assertEquals("5", RuntimeSummaryTest.value(panel.summary, "Request timeout (s)"));
+                assertTrue(RuntimeSummaryTest.value(panel.summary, "Curl arguments").contains("X-Test: app"));
                 panel.execute.doClick();
                 assertFalse(panel.execute.isEnabled());
                 assertFalse(panel.requests.isEnabled());
