@@ -1,5 +1,10 @@
 # 변경 이력
 
+## 2026-10-07 — SM/CM/LG 크기 설정
+
+- `payloadSizes`에서 SM/CM/LG별 크기를 지정하고 생략한 항목은 기존 2K/16K/64K 기본값을 사용합니다. 요청 경로의 preset 이름과 직접 크기 설정은 유지합니다.
+- YAML·Excel 변환과 application의 `Payload sizes` 편집, 단건·선택·전체·저장 생략 실행에 적용합니다. 설정 파일 예시는 `samples/config-payload-sizes.yml`입니다.
+
 ## 2026-10-07 — 공통·개별 요청 헤더
 
 - 최상위 `headers`와 `payloadTypes[].headers`를 추가했습니다. 같은 이름은 대소문자 구분 없이 개별 값이 공통 값을 덮어쓰며 한 번만 전송합니다.

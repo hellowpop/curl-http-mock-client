@@ -186,7 +186,7 @@ final class ApplicationPanel extends JPanel {
         result.setText("실행 중…\n" + type.path());
         var selected = new ClientConfig(config.endpointUrl(), config.method(), config.curlExecutable(),
                 config.connectTimeoutSeconds(), config.requestTimeoutSeconds(), config.outputDirectory(),
-                List.of(type), config.curlArguments(), config.headers());
+                List.of(type), config.curlArguments(), config.headers(), config.payloadSizes());
         new SwingWorker<RunDisplay, Void>() {
             @Override protected RunDisplay doInBackground() throws IOException {
                 var run = new BatchExecutor().run(selected);
@@ -233,7 +233,7 @@ final class ApplicationPanel extends JPanel {
         var types = visibleIndices.stream().map(config.payloadTypes()::get).toList();
         var selected = new ClientConfig(config.endpointUrl(), config.method(), config.curlExecutable(),
                 config.connectTimeoutSeconds(), config.requestTimeoutSeconds(), config.outputDirectory(),
-                types, config.curlArguments(), config.headers());
+                types, config.curlArguments(), config.headers(), config.payloadSizes());
         return new BatchProgressPanel(selected, "선택실행", null);
     }
 

@@ -65,6 +65,7 @@ public final class ConfigFiles {
     }
 
     private static void validateInputTypes(JsonNode input) {
+        PayloadSizes.validateInput(input);
         RequestHeaders.validateInput(input);
         if (input.has("curlArguments")) {
             JsonNode arguments = input.get("curlArguments");

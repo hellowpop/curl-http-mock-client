@@ -1,0 +1,9 @@
+endpointUrl: http://localhost:8080
+payloadSizes:
+  SM: 4K
+  CM: 32K
+  LG: 128K
+payloadTypes:
+  - contentType: json,xml,form,multipart
+    transferEncoding: NA,GZ
+    payloadSize: SM,CM,LG

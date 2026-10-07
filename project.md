@@ -166,7 +166,20 @@ java -jar target/curl-http-mock-client.jar --config samples/config.yml --loop 3 
 
 `BatchExecutor.run(config, progress, loops, skipResult)`가 반복 및 저장 정책을 적용한다. 기존 호출은 1회 실행과 저장을 유지한다. 저장 생략 시 `RunResult`의 workbook/artifactsDirectory와 `TransactionResult`의 파일 경로는 null이며 헤더 문자열은 비어 있다. `CurlRunner`는 결과 디렉토리 null을 저장 생략으로 처리하고, `RequestCompression`은 파일과 메모리 압축 경로를 공유한다.
 
+## SM/CM/LG 크기 설정
+
+`ClientConfig.payloadSizes`는 preset별 명시 크기를 보관하는 불변 문자열 맵이다. YAML 최상위 `payloadSizes`와 Excel `Settings.payloadSizes` JSON 객체를 지원한다. 키는 SM/CM/LG, 값은 기존 크기 문자열(2K~64M)이며 별칭을 값으로 지정할 수 없다. 생략한 키는 SM=2K, CM=16K, LG=64K를 사용한다. Excel 빈 셀과 빈 객체도 기본값을 사용하며 잘못된 키·형식·범위·중복 입력은 거부한다.
+
+`PayloadSizes`는 검증·정규화·해석을 담당한다. `ClientConfig` 생성 시 각 요청의 preset 토큰을 유지하면서 bytes를 해당 설정으로 해석한 새 `PayloadType` 목록을 만든다. 전역 preset 객체는 바꾸지 않아 다른 설정과 격리된다. 직접 크기 토큰은 변경하지 않는다. `PayloadGenerator`는 해석된 bytes로 본문을 생성한다. 기존 생성자를 유지하고 출력 경로 변경·CLI 추가 인수·단건/검색 선택실행에서 맵을 보존한다.
+
+`RuntimeSummary`의 `Payload sizes`는 전체 요청에 적용되는 편집 행이다. JSON 객체로 입력하고 항목 삭제 시 기본값으로 복원한다. 자동 계산 `Payload bytes`는 해석된 크기를 표시한다. YAML↔Excel 변환과 원본 파일을 바꾸지 않는 화면 편집도 지원한다. `PayloadSizesConfigTest`는 각 본문 형식의 정확한 크기, 기본값과 직접 크기 유지, 설정 간 격리, 변환·복사·화면 편집, 잘못된 입력, 실제 curl 단건/선택/전체/저장 생략 전송을 검증한다.
+
 ## 구조 변경 내역
+
+- 2026-10-07: SM/CM/LG 크기 설정 변경의 커밋·푸시 전 기술문서를 갱신하고 Java 21 Maven verify를 다시 실행했다. 전체 248개 테스트의 실패·오류·생략 0건과 JAR 빌드 성공을 확인했다. 최종 검증 로그는 `verification/payload-sizes-push-verify.log`다.
+
+- 2026-10-07: `payloadSizes` 설정과 `PayloadSizes` 검증·해석을 추가했다. SM/CM/LG URL 토큰과 기존 기본값을 유지하면서 설정별 크기를 적용한다. YAML·Excel·화면 편집 및 실행 snapshot에 보존하고 예제와 회귀 테스트를 추가했다.
+- 2026-10-07: 신규 14개 테스트를 포함한 전체 248개 테스트의 실패·오류·생략 0건과 Java 21 Maven verify/JAR 빌드 성공을 확인했다. 실제 단건·선택·전체·저장 생략 전송 및 Excel 생략/빈 설정의 기본값 복원을 검증했다. 로그는 `verification/payload-sizes-verify.log`다.
 
 - 2026-10-07: 공통·개별 헤더 기능의 커밋·푸시 전 기술문서를 갱신하고 Java 21 Maven verify를 다시 실행했다. 전체 234개 테스트의 실패·오류·생략 0건과 JAR 빌드 성공을 확인했다. 로그는 `verification/headers-push-verify.log`다.
 

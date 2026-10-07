@@ -14,7 +14,7 @@ import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 final class ExcelConfigCodec {
-    private static final Set<String> KEYS = Set.of("endpointUrl", "method", "curlExecutable", "connectTimeoutSeconds", "requestTimeoutSeconds", "outputDirectory", "curlArguments", "headers");
+    private static final Set<String> KEYS = Set.of("endpointUrl", "method", "curlExecutable", "connectTimeoutSeconds", "requestTimeoutSeconds", "outputDirectory", "curlArguments", "headers", "payloadSizes");
     private static final com.fasterxml.jackson.databind.ObjectMapper JSON = new com.fasterxml.jackson.databind.ObjectMapper()
             .enable(com.fasterxml.jackson.core.JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
             .enable(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
@@ -48,7 +48,7 @@ final class ExcelConfigCodec {
                 if (!KEYS.contains(key)) throw new IllegalArgumentException("Unknown Excel setting at row " + (i + 1) + ": " + key);
                 if (!seen.add(key)) throw new IllegalArgumentException("Duplicate Excel setting: " + key);
                 String value = text(row.getCell(1));
-                if (key.equals("headers")) {
+                if (key.equals("headers") || key.equals("payloadSizes")) {
                     root.set(key, value.isEmpty() ? JSON.createObjectNode() : JSON.readTree(value));
                 } else if (key.equals("curlArguments")) {
                     if (value.isEmpty()) root.putArray(key);
@@ -91,7 +91,8 @@ final class ExcelConfigCodec {
                 {"connectTimeoutSeconds", config.connectTimeoutSeconds().toString()},
                 {"requestTimeoutSeconds", config.requestTimeoutSeconds().toString()}, {"outputDirectory", config.outputDirectory()},
                 {"curlArguments", JSON.writeValueAsString(config.curlArguments())},
-                {"headers", JSON.writeValueAsString(config.headers())}
+                {"headers", JSON.writeValueAsString(config.headers())},
+                {"payloadSizes", JSON.writeValueAsString(config.payloadSizes())}
             };
             for (int i = 0; i < rows.length; i++) {
                 Row row = settings.createRow(i + 1);

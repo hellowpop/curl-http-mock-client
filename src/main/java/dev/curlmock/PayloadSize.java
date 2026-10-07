@@ -20,6 +20,8 @@ public final class PayloadSize {
     @JsonValue public String token() { return token; }
     public int bytes() { return bytes; }
 
+    static PayloadSize preset(String token, int bytes) { return new PayloadSize(token, bytes); }
+
     @JsonCreator public static PayloadSize parse(String value) {
         if (value == null) throw new IllegalArgumentException("payloadSize is required");
         String text = value.strip().toUpperCase(Locale.ROOT);

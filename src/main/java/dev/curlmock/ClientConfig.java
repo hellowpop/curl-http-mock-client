@@ -7,11 +7,24 @@ import java.net.URI;
 public record ClientConfig(String endpointUrl, String method, String curlExecutable,
                            Integer connectTimeoutSeconds, Integer requestTimeoutSeconds,
                            String outputDirectory, List<PayloadType> payloadTypes, List<String> curlArguments,
-                           java.util.Map<String, String> headers) {
+                           java.util.Map<String, String> headers, java.util.Map<String, String> payloadSizes) {
     public ClientConfig {
         if (curlArguments == null) throw new IllegalArgumentException("curlArguments must be an array");
         curlArguments = java.util.Collections.unmodifiableList(new ArrayList<>(curlArguments));
         headers = RequestHeaders.copy(headers);
+        payloadSizes = PayloadSizes.copy(payloadSizes);
+        var sizes = payloadSizes;
+        if (payloadTypes != null) payloadTypes = payloadTypes.stream().map(type -> type == null ? null :
+                new PayloadType(type.contentType(), type.transferEncoding(), PayloadSizes.resolve(type.payloadSize(), sizes),
+                        type.connectTimeoutSeconds(), type.requestTimeoutSeconds(), type.headers())).toList();
+    }
+
+    public ClientConfig(String endpointUrl, String method, String curlExecutable,
+                        Integer connectTimeoutSeconds, Integer requestTimeoutSeconds,
+                        String outputDirectory, List<PayloadType> payloadTypes, List<String> curlArguments,
+                        java.util.Map<String, String> headers) {
+        this(endpointUrl, method, curlExecutable, connectTimeoutSeconds, requestTimeoutSeconds,
+                outputDirectory, payloadTypes, curlArguments, headers, java.util.Map.of());
     }
 
     public ClientConfig(String endpointUrl, String method, String curlExecutable,
@@ -62,13 +75,13 @@ public record ClientConfig(String endpointUrl, String method, String curlExecuta
     }
 
     public ClientConfig withOutputDirectory(String directory) {
-        return new ClientConfig(endpointUrl, method, curlExecutable, connectTimeoutSeconds, requestTimeoutSeconds, directory, payloadTypes, curlArguments, headers);
+        return new ClientConfig(endpointUrl, method, curlExecutable, connectTimeoutSeconds, requestTimeoutSeconds, directory, payloadTypes, curlArguments, headers, payloadSizes);
     }
 
     public ClientConfig withAdditionalCurlArguments(List<String> additional) {
         var combined = new ArrayList<>(curlArguments);
         combined.addAll(additional);
         return new ClientConfig(endpointUrl, method, curlExecutable, connectTimeoutSeconds, requestTimeoutSeconds,
-                outputDirectory, payloadTypes, combined, headers);
+                outputDirectory, payloadTypes, combined, headers, payloadSizes);
     }
 }

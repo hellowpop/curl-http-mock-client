@@ -253,6 +253,21 @@ BR은 [Brotli4j](https://github.com/hyperxpro/Brotli4j)를 사용하며 Windows�
 | CM | 16,384바이트 |
 | LG | 65,536바이트 |
 
+### SM/CM/LG 기본 크기 설정
+
+최상위 `payloadSizes`에서 preset별 크기를 지정합니다. 생략한 항목은 위 표의 기본값(SM=2K, CM=16K, LG=64K)을 사용합니다. 설정 전체를 생략하거나 `{}`로 지정해도 기본값을 사용합니다.
+
+```yaml
+payloadSizes:
+  SM: 4K
+  CM: 32K
+  LG: 128K
+```
+
+값은 `4K`, `1M`, `"4096"` 같은 크기 문자열이며 2K~64M 범위를 지원합니다. 요청의 `payloadSize: SM`과 URL `/PS_SM`은 유지하고 압축 전 본문을 지정한 크기로 생성합니다. `payloadSize: 20K`처럼 직접 지정한 크기는 영향을 받지 않습니다. Excel `Settings`에는 key=`payloadSizes`, value=`{"SM":"4K","CM":"32K","LG":"128K"}`를 입력합니다. 빈 셀은 기본값을 사용합니다. YAML↔Excel 변환에서 설정을 보존합니다.
+
+application의 `Payload sizes` 행도 같은 JSON 객체로 편집하며 전체 요청에 적용합니다. 항목을 삭제하거나 `{}`를 입력하면 해당 기본값으로 복원합니다. `Payload bytes`에서 선택 요청에 적용되는 크기를 확인할 수 있습니다. 예시는 [samples/config-payload-sizes.yml](samples/config-payload-sizes.yml)입니다.
+
 ### 직접 payload 크기 지정
 
 `payloadSize`에 SM/CM/LG 또는 `20K`, `1M`처럼 크기를 직접 입력할 수 있습니다. K/KB/KiB는 1,024바이트, M/MB/MiB는 1,048,576바이트 기준이며 단위는 대소문자를 구분하지 않습니다. `20480B` 또는 문자열 `"20480"`처럼 바이트 수도 지정할 수 있습니다. 모든 형식의 구조를 포함할 수 있도록 **2K 이상**, 현재 메모리에서 본문을 생성하므로 **64M 이하**의 정수 크기를 지원합니다.
