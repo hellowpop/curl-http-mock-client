@@ -1,5 +1,11 @@
 # 검증 결과
 
+## 반복 실행·저장 생략 및 문서 정리 (2026-10-07)
+
+RunOptionsTest 13개에서 실제 로컬 HTTP 서버와 curl로 8개 전송 방식의 저장 생략 실행을 확인했다. gzip·deflate·compress·Brotli 본문을 독립 decoder로 복원하여 정확한 크기와 JSON 구조를 확인하고, 큰 응답 본문을 받아도 결과 디렉토리를 만들지 않는 것을 검증했다. 전체 목록 3회 반복의 순서, 6건 중 첫 실패를 포함한 집계와 종료 코드, 하나의 Excel에 누적된 결과 행, 저장 생략과 반복의 조합을 검증했다. 잘못된 반복 횟수·누락값·모드 조합, 실행 전 중단 시 남은 반복 취소와 interrupt 상태 보존, curl 실행 파일 누락 처리도 확인했다.
+
+구현 전 새 옵션이 없어 테스트가 실패하는 것을 확인했으며 로그는 `verification/run-options-red.log`다. 구현 후 전체 Maven verify에서 214개 테스트의 실패·오류·생략 0건과 BUILD SUCCESS를 확인했다(`verification/run-options-verify.log`). 최종 입력 검증 보강 후 RunOptionsTest 13개도 다시 통과했다(`verification/run-options-green.log`). 문서 정리 후 target 산출물을 제거하고 전체 Maven verify를 실행하여 같은 214개 테스트와 BUILD SUCCESS를 확인했다. 최종 로그는 `verification/run-options-docs-push-20261007.log`다. 새 JAR 도움말에 두 옵션과 기본값·CLI 전용 설명이 포함된 것도 확인했다.
+
 ## LZW 문서 정리와 푸시 전 검증 (2026-10-07)
 
 README/project.md/설계 문서/CHANGELOG와 현재 테스트 목록을 LZW 스트림 API 및 COMPRESS 연결에 맞췄다. 새 스트림의 finish/flush/close, 기저 스트림 소유권, 형식·메모리 제한과 Commons Compress 직접 의존성을 기록했다.
@@ -32,13 +38,14 @@ RuntimeSummaryTest에서 단건·선택·전체 실행의 편집값 적용, 중�
 
 ## 자동 테스트
 
-현재 LZW 스트림·실행 요약 편집·추가 압축 방식 구현의 `mvn verify` 결과: **BUILD SUCCESS**, **201개 테스트 / 실패 0 / 오류 0 / 생략 0**. 기능 검증 로그는 `verification/lzw-streams-verify.log`입니다. 아래 기능별 이력의 테스트 수와 JAR 실행 기록은 각 변경을 검증한 당시의 결과입니다. 검증용 `verification/` 디렉토리는 Git 추적에서 제외합니다. Swing 컴포넌트 동작과 화면 렌더링은 headless 환경에서 검증했으며 실제 데스크톱의 팝업 창 조작은 포함하지 않았습니다.
+현재 반복 실행·저장 생략·LZW 스트림·실행 요약 편집·추가 압축 방식 구현의 `mvn verify` 결과: **BUILD SUCCESS**, **214개 테스트 / 실패 0 / 오류 0 / 생략 0**. 기능 검증 로그는 `verification/run-options-verify.log`입니다. 아래 기능별 이력의 테스트 수와 JAR 실행 기록은 각 변경을 검증한 당시의 결과입니다. 검증용 `verification/` 디렉토리는 Git 추적에서 제외합니다. Swing 컴포넌트 동작과 화면 렌더링은 headless 환경에서 검증했으며 실제 데스크톱의 팝업 창 조작은 포함하지 않았습니다.
 
 - 설정 테스트 56개: YAML/Excel 왕복 변환, 경로 보존, 중복/누락/수식/잘못된 값, 숫자 enum과 scalar 자동 변환 거부, 덮어쓰기 보호, 콤마 값 조합/공백/중복/변환/잘못된 토큰, preset과 직접 크기 혼용 및 변환, timeout 기본값과 항목별 값 보존, 잘못된 항목별 timeout 거부, 기존 Excel 3열 호환.
 - payload 테스트 21개: 12개 preset CT/PS 조합과 8개 직접 크기 CT/PS 조합의 정확한 byte 크기와 형식 유효성, 무작위 데이터.
 - payload 크기 파서 테스트 27개: preset, 단위/대소문자 별칭, 바이트 수, 경로 토큰, 최솟값/최댓값, 잘못된 크기 및 곱셈 오버플로 거부.
 - curl 통합 테스트 9개: 실제 curl의 96개 preset CT/TE/PS 조합, gzip·deflate·compress·Brotli 복원, chunked 헤더, 원본 응답, Excel 링크, HTTP 실패 후 계속 실행, timeout/연결 거부/실행 파일 누락, 비 UTF-8 응답 헤더, 콤마 값에서 확장된 8개 요청의 순서와 결과, 20K/1M의 24개 전송 조합, 기본 3초 종료와 항목별 timeout 우선 적용 및 상위 설정 상속.
 - CLI 테스트 5개: 샘플 생성, 양방향 변환, 옵션 오류, 종료 코드, malformed Excel 설정 오류, application/config 모드 제약.
+- 반복·저장 생략 테스트 13개: 8개 전송 방식의 실제 업로드·압축 복원·파일 미생성, 전체 목록 반복 순서와 Excel 누적, 저장 생략 조합 및 실패 집계, 잘못된 횟수/모드 거부, 실행 전 중단과 curl 실행 파일 누락.
 - JVM 종료 테스트 2개: 첫 요청 중 중단, 완료 요청 후 중단 시 결과 Excel/중단 행/파일 링크 저장과 이후 요청 중지.
 - 결과 Excel 테스트 1개: 지정된 11개 열 순서와 각 필드의 값/링크/숫자 셀 매핑.
 - curl 추가 인수 테스트 37개: YAML·Excel 변환에서 인수 순서·중복·공백 보존, 설정과 CLI 헤더의 실제 전송, 셸 표현식의 문자 그대로 전달, 잘못된 타입·JSON·옵션 및 충돌하는 헤더 거부, 기본값·Excel 빈 셀·실행 모드 검증.

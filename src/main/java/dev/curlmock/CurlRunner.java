@@ -16,20 +16,27 @@ final class CurlRunner {
 
     TransactionResult execute(ClientConfig config, PayloadType type, Payload payload, String uuid, Path directory, RunControl control) throws IOException {
         long start = System.nanoTime();
+        boolean skipResult = directory == null;
         Path log = artifact(directory, uuid, "curl_log.txt");
         Path request = artifact(directory, uuid, "request_payload.txt");
         Path response = artifact(directory, uuid, "response_payload.txt");
         Path requestHeadersFile = artifact(directory, uuid, "request_headers.txt");
         Path responseHeadersFile = artifact(directory, uuid, "response_headers.txt");
         Path stdoutFile = artifact(directory, uuid, "curl_stdout.txt");
-        Files.write(request, payload.body());
-        Files.write(response, new byte[0]);
-        Files.writeString(responseHeadersFile, "");
-        Files.writeString(stdoutFile, "");
+        if (!skipResult) {
+            Files.write(request, payload.body());
+            Files.write(response, new byte[0]);
+            Files.writeString(responseHeadersFile, "");
+            Files.writeString(stdoutFile, "");
+        }
         Path wireBody = request;
+        byte[] stdinBody = payload.body();
         if (type.transferEncoding().contentEncoding() != null) {
-            wireBody = artifact(directory, uuid, "request_payload." + type.transferEncoding().extension());
-            RequestCompression.write(type.transferEncoding(), payload.body(), wireBody);
+            if (skipResult) stdinBody = RequestCompression.encode(type.transferEncoding(), payload.body());
+            else {
+                wireBody = artifact(directory, uuid, "request_payload." + type.transferEncoding().extension());
+                RequestCompression.write(type.transferEncoding(), payload.body(), wireBody);
+            }
         }
         String url = config.endpointUrl().replaceAll("/+$", "") + type.path();
         int connectTimeout = type.effectiveConnectTimeoutSeconds(config);
@@ -37,16 +44,17 @@ final class CurlRunner {
         var command = new ArrayList<>(List.of(config.curlExecutable(), "--disable", "--silent", "--show-error", "--verbose",
                 "--http1.1", "--globoff", "--request", config.method(), "--url", url,
                 "--connect-timeout", Integer.toString(connectTimeout), "--max-time", Integer.toString(requestTimeout),
-                "--output", response.toString(), "--dump-header", responseHeadersFile.toString(),
+                "--output", skipResult ? (java.io.File.separatorChar == '\\' ? "NUL" : "/dev/null") : response.toString(),
                 "--write-out", "\nCURLMOCK_HTTP_STATUS:%{http_code}\n", "--header", "Content-Type: " + payload.contentType(), "--header", "Expect:"));
         if (type.transferEncoding().chunked()) command.addAll(List.of("--header", "Transfer-Encoding: chunked", "--header", "Content-Length:", "--upload-file", "-"));
         else {
             if (type.transferEncoding().contentEncoding() != null)
                 command.addAll(List.of("--header", "Content-Encoding: " + type.transferEncoding().contentEncoding()));
-            command.addAll(List.of("--data-binary", "@" + wireBody));
+            command.addAll(List.of("--data-binary", skipResult ? "@-" : "@" + wireBody));
         }
+        if (!skipResult) command.addAll(List.of("--dump-header", responseHeadersFile.toString()));
         command.addAll(config.curlArguments());
-        Files.writeString(log, "uuid: " + uuid + "\nendpoint: " + url + "\nrequest entity file: " + wireBody
+        if (!skipResult) Files.writeString(log, "uuid: " + uuid + "\nendpoint: " + url + "\nrequest entity file: " + wireBody
                 + "\nresponse entity file: " + response + "\nstdin block bytes: " + type.transferEncoding().blockBytes()
                 + "\nCommand arguments (JSON): " + new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(command)
                 + "\n\n--- curl stderr / verbose ---\n", StandardCharsets.UTF_8);
@@ -54,12 +62,17 @@ final class CurlRunner {
         String error = "";
         boolean restoreInterrupt = false;
         Process process = null;
+        String capturedStdout = "";
+        byte[] inputBody = stdinBody;
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             try {
-                process = control.start(new ProcessBuilder(command).redirectOutput(stdoutFile.toFile())
-                        .redirectError(ProcessBuilder.Redirect.appendTo(log.toFile())));
+                var builder = new ProcessBuilder(command);
+                if (skipResult) builder.redirectError(ProcessBuilder.Redirect.DISCARD);
+                else builder.redirectOutput(stdoutFile.toFile()).redirectError(ProcessBuilder.Redirect.appendTo(log.toFile()));
+                process = control.start(builder);
                 if (process != null) {
                     Process active = process;
+                    var stdoutReader = skipResult ? executor.submit(() -> new String(active.getInputStream().readAllBytes(), StandardCharsets.UTF_8)) : null;
                     var writer = executor.submit(() -> {
                         try (var out = active.getOutputStream()) {
                             if (type.transferEncoding().chunked()) {
@@ -69,7 +82,7 @@ final class CurlRunner {
                                     out.write(bytes, offset, Math.min(block, bytes.length - offset));
                                     out.flush();
                                 }
-                            }
+                            } else if (skipResult) out.write(inputBody);
                         }
                         return null;
                     });
@@ -85,6 +98,12 @@ final class CurlRunner {
                     } catch (java.util.concurrent.TimeoutException e) {
                         writer.cancel(true);
                         error = "curl stdin writer timed out";
+                    }
+                    if (stdoutReader != null) {
+                        try { capturedStdout = stdoutReader.get(2, TimeUnit.SECONDS); }
+                        catch (java.util.concurrent.ExecutionException | java.util.concurrent.TimeoutException e) {
+                            error = "Cannot read curl status: " + e.getMessage();
+                        }
                     }
                 }
             } catch (IOException e) {
@@ -107,13 +126,14 @@ final class CurlRunner {
         }
         if (control.isCancelled()) error = "curl execution interrupted by cancellation/shutdown";
         try {
-            String stdout = Files.readString(stdoutFile, StandardCharsets.UTF_8);
+            String stdout = skipResult ? capturedStdout : Files.readString(stdoutFile, StandardCharsets.UTF_8);
             int status = 0;
             var matcher = STATUS.matcher(stdout);
             while (matcher.find()) status = Integer.parseInt(matcher.group(1));
-            if (error.isEmpty() && exit != 0) error = "curl exited with code " + exit + "; see curl log";
+            if (error.isEmpty() && exit != 0) error = "curl exited with code " + exit + (skipResult ? "" : "; see curl log");
             if (error.isEmpty() && (status < 200 || status >= 400)) error = "HTTP status " + status;
             long elapsed = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
+            if (skipResult) return new TransactionResult(uuid, url, null, "", null, "", null, status, exit, elapsed, error);
             // HTTP/1.1 header values may contain raw obs-text bytes (0x80..0xff).
             // Preserve the raw diagnostic file and decode header lines without UTF-8 validation.
             String verbose = new String(Files.readAllBytes(log), StandardCharsets.ISO_8859_1);
@@ -132,5 +152,5 @@ final class CurlRunner {
         }
     }
 
-    static Path artifact(Path directory, String uuid, String suffix) { return directory.resolve(uuid + "_" + suffix); }
+    static Path artifact(Path directory, String uuid, String suffix) { return directory == null ? null : directory.resolve(uuid + "_" + suffix); }
 }

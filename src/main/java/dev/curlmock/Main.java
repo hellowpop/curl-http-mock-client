@@ -16,6 +16,10 @@ public final class Main implements Callable<Integer> {
     @Option(names = "--curl-arg", paramLabel = "ARG", description = "Append one curl argument (repeatable, run mode only; use --curl-arg=ARG).")
     private java.util.List<String> curlArguments = new java.util.ArrayList<>();
     @Spec private Model.CommandSpec spec;
+    @Option(names = "--skip-result", description = "Skip result workbook and all request/response artifacts (CLI run only).")
+    private boolean skipResult;
+    @Option(names = "--loop", paramLabel = "N", description = "Repeat the complete request sequence N times (positive integer; default: 1, CLI run only).")
+    private Integer loop;
 
     static final class Mode {
         @Option(names = "--config", description = "Execute payloadTypes from a YAML or Excel configuration.") Path config;
@@ -36,6 +40,9 @@ public final class Main implements Callable<Integer> {
         ClientConfig config;
         try {
             boolean conversion = mode.excelToYml != null || mode.ymlToExcel != null;
+            if ((skipResult || loop != null) && (mode.config == null || application))
+                throw new IllegalArgumentException("--skip-result and --loop require --config without --application");
+            if (loop != null && loop < 1) throw new IllegalArgumentException("--loop must be a positive integer");
             if (application && mode.config == null) throw new IllegalArgumentException("--application requires --config");
             if (mode.config == null && !curlArguments.isEmpty()) throw new IllegalArgumentException("--curl-arg is only valid with --config");
             if (conversion && output == null) throw new IllegalArgumentException("Conversion requires --output");
@@ -70,13 +77,17 @@ public final class Main implements Callable<Integer> {
                 ApplicationPanel.open(config);
                 return 0;
             }
-            var run = new BatchExecutor().run(config);
-            spec.commandLine().getOut().println("Results: " + run.workbook());
-            spec.commandLine().getOut().println("Artifacts: " + run.artifactsDirectory());
+            var run = new BatchExecutor().run(config, message -> {}, loop == null ? 1 : loop, skipResult);
+            if (skipResult) spec.commandLine().getOut().println("Result saving skipped.");
+            else {
+                spec.commandLine().getOut().println("Results: " + run.workbook());
+                spec.commandLine().getOut().println("Artifacts: " + run.artifactsDirectory());
+            }
             long successes = run.transactions().stream().filter(TransactionResult::success).count();
             spec.commandLine().getOut().printf("Transactions: %d; succeeded: %d; failed: %d%n",
                     run.transactions().size(), successes, run.transactions().size() - successes);
-            if (run.interrupted()) spec.commandLine().getOut().println("Run interrupted; partial results saved.");
+            if (run.interrupted()) spec.commandLine().getOut().println(skipResult
+                    ? "Run interrupted; result saving skipped." : "Run interrupted; partial results saved.");
             return run.success() ? 0 : 1;
         } catch (IOException | RuntimeException e) {
             spec.commandLine().getErr().println("Execution error: " + e.getMessage());

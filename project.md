@@ -6,7 +6,7 @@ Java 21 CLI 또는 `--application` Swing 화면에서 외부 curl 프로세스�
 
 | 구성 요소 | 역할 |
 |---|---|
-| `Main` | picocli 옵션, 실행/샘플/변환 모드, 종료 코드 |
+| `Main` | picocli 옵션, 실행/샘플/변환 모드, CLI 반복·저장 생략 옵션 검증, 종료 코드 |
 | `ApplicationPanel` | Swing 요청 검색·선택 요약, 비동기 단건 실행, 전체/검색 결과 실행 모달 연결 및 결과 표시 |
 | `RuntimeSummary` | 실행값 편집 그리드, 검증된 메모리 설정 snapshot 생성 |
 | `BatchProgressPanel` | 모달 전체/선택실행 팝업의 실시간 실행 로그, 완료 요약, 결과 Excel 보기 |
@@ -18,11 +18,11 @@ Java 21 CLI 또는 `--application` Swing 화면에서 외부 curl 프로세스�
 | `PayloadTypesExpansion`, `PayloadSize` | CT×TE×PS 조합 확장과 직접 크기 해석 |
 | `PayloadGenerator` | 정확한 크기의 JSON/XML/form/multipart 본문 생성 |
 | `CurlArguments` | 추가 curl 옵션의 종류, 인수 개수 및 충돌 검증 |
-| `CurlRunner` | curl 인수 구성, ProcessBuilder 실행, 본문 전송 및 응답/로그 수집 |
+| `CurlRunner` | curl 인수 구성, ProcessBuilder 실행, 파일/메모리 본문 전송 및 응답/로그 수집 |
 | `RequestCompression` | gzip·zlib deflate·Unix LZW compress·Brotli 전송 본문 생성 |
 | `LzwInputStream`, `LzwOutputStream` | 재사용 가능한 Unix `.Z` LZW 순차 복원·압축 스트림 |
 | `JsonResponse` | 유효한 JSON 응답의 스트리밍 pretty 저장, 숫자/중복 필드 보존 |
-| `BatchExecutor`, `RunControl` | 순차 실행, Ctrl-C 취소와 부분 결과 저장 |
+| `BatchExecutor`, `RunControl` | 전체 목록 반복·순차 실행, 저장 정책, Ctrl-C 취소와 부분 결과 저장 |
 | `ResultWorkbook`, `ExcelStyles` | 결과 Excel과 파일 링크, 서식 |
 
 ## Application mode
@@ -81,7 +81,7 @@ Jackson 스트리밍 parser/generator로 임시 파일에 작성하며 숫자는
 
 GZ/DEFLATE/COMPRESS/BR은 `Content-Encoding: gzip/deflate/compress/br`과 압축 본문의 Content-Length로 전송한다. CSB/CCB/CLB의 HTTP chunked 처리와 구분한다. DEFLATE는 zlib wrapper를 포함한 `DeflaterOutputStream`, COMPRESS는 Unix `.Z` LZW(비블록 모드, 코드 폭 9~16비트), BR은 [Brotli4j 1.23.0](https://github.com/hyperxpro/Brotli4j)의 Brotli encoder(quality 4)를 사용한다. `LzwOutputStream`은 코드 폭 변경 시 8개 코드 그룹 정렬과 사전 포화 시 기존 사전 유지를 처리한다. Commons Compress의 독립 `.Z` decoder로 결과를 검증한다.
 
-`RequestCompression`은 원문 `request_payload.txt`와 별도로 실제 전송 본문을 `.gz`, `.deflate`, `.Z`, `.br`에 기록한다. `CurlRunner`는 enum의 헤더값과 확장자를 사용해 압축 파일과 curl 헤더를 연결한다. Payload 크기는 압축 전 원문의 정확한 크기이며 전송 크기는 달라진다. 설정파일 저장 경로는 호출하지 않으므로 application에서 바꾼 값은 기존처럼 현재 실행 동안만 유지된다.
+`RequestCompression`은 기본 저장 모드에서 원문 `request_payload.txt`와 별도로 실제 전송 본문을 `.gz`, `.deflate`, `.Z`, `.br`에 기록한다. `CurlRunner`는 enum의 헤더값과 확장자를 사용해 압축 파일과 curl 헤더를 연결한다. 저장 생략 모드에서는 같은 압축 스트림으로 메모리 본문을 만들고 curl 표준 입력으로 전달한다. Payload 크기는 압축 전 원문의 정확한 크기이며 전송 크기는 달라진다. 설정파일 저장 경로는 호출하지 않으므로 application에서 바꾼 값은 기존처럼 현재 실행 동안만 유지된다.
 
 Brotli4j의 Windows·Linux·macOS x64/ARM64 네이티브 라이브러리를 runtime 의존성으로 명시하고 shaded JAR에 함께 포함한다. 기존 ServicesResourceTransformer가 플랫폼 provider를 합치며 실행 환경에 맞는 라이브러리를 선택한다. 그 외 아키텍처에서는 Brotli4j가 제공하는 해당 native 의존성을 추가해 빌드한다. Windows에서는 Brotli4j가 요구하는 Microsoft Visual C++ Redistributable이 필요하다. 네이티브 라이브러리 로딩 실패는 IOException으로 전달해 화면의 실행 오류와 기존 부분 결과 저장 흐름을 사용한다. 실제 압축·전송 및 패키지 실행은 Windows x64에서 검증한다.
 
@@ -121,7 +121,7 @@ CLI에서 `--curl-arg=ARG`를 반복하여 추가할 수 있다. 설정 파일 �
 java -jar target/curl-http-mock-client.jar --config samples/config.yml --curl-arg=--header --curl-arg="X-Test: command line"
 ```
 
-셸을 실행하지 않고 `ProcessBuilder`에 인수 목록을 전달한다. 따라서 `$()`, 세미콜론 등은 셸 명령으로 해석되지 않는다. 실행한 인수는 기존 UUID별 curl 로그에 기록되므로 인증 정보도 로그에 포함된다.
+셸을 실행하지 않고 `ProcessBuilder`에 인수 목록을 전달한다. 따라서 `$()`, 세미콜론 등은 셸 명령으로 해석되지 않는다. 기본 저장 모드에서는 실행한 인수를 UUID별 curl 로그에 기록하므로 인증 정보도 로그에 포함된다. `--skip-result`에서는 해당 로그 파일을 생성하지 않는다.
 
 ### 지원 옵션
 
@@ -141,9 +141,27 @@ java -jar target/curl-http-mock-client.jar --config samples/config.yml --curl-ar
 
 `--location`을 지정하면 리디렉션을 추적하고 `--compressed`를 지정하면 응답 압축을 해제한다. 기본 동작에는 두 옵션을 적용하지 않는다. curl 옵션 의미는 [공식 man page](https://curl.se/docs/manpage.html)를 따른다.
 
+## 반복 실행과 결과 저장 생략
+
+CLI의 `--config` 실행에 다음 옵션을 적용할 수 있다. `--application`, 샘플 생성, 형식 변환과 함께 사용하면 설정 오류(종료 코드 2)를 반환한다.
+
+```powershell
+java -jar target/curl-http-mock-client.jar --config samples/config.yml --loop 3 --skip-result
+```
+
+- `--loop N`: 전체 `payloadTypes` 목록을 설정 순서대로 N회 실행한다. 생략하면 1회이며 N은 1 이상의 정수여야 한다. 매 요청마다 새 UUID와 payload를 생성한다.
+- `--skip-result`: Excel 결과 및 UUID별 요청/응답 payload, 압축 본문, 헤더, curl 로그 파일을 생성하지 않는다. 결과 디렉토리도 생성하지 않는다. 요청은 메모리에서 curl 표준 입력으로 전송하고 응답 본문은 OS null 장치로 버린다. 콘솔 진행 로그와 성공/실패 집계는 유지한다.
+- 저장하는 경우 모든 반복 결과를 하나의 Excel 파일과 실행별 결과 디렉토리에 누적한다. HTTP/curl 실패가 있어도 남은 요청을 계속 실행하며 하나라도 실패하면 종료 코드 1을 반환한다. 중단 시 남은 반복을 실행하지 않으며, 저장 모드에서는 완료된 요청과 중단된 요청 결과를 기록한다.
+
+`BatchExecutor.run(config, progress, loops, skipResult)`가 반복 및 저장 정책을 적용한다. 기존 호출은 1회 실행과 저장을 유지한다. 저장 생략 시 `RunResult`의 workbook/artifactsDirectory와 `TransactionResult`의 파일 경로는 null이며 헤더 문자열은 비어 있다. `CurlRunner`는 결과 디렉토리 null을 저장 생략으로 처리하고, `RequestCompression`은 파일과 메모리 압축 경로를 공유한다.
+
 ## 구조 변경 내역
 
-- 2026-10-07: LZW 스트림 API와 자원 소유권, COMPRESS 연결, 직접 의존성을 설계 문서와 검증 목록에 반영했다. 현재 검증 기준은 전체 201개 테스트이며 과거 기능별 검증 수는 이력으로 유지한다.
+- 2026-10-07: README·기술문서·CHANGELOG·검증 문서에 반복/저장 생략 옵션, CLI 전용 범위와 종료 동작을 반영했다. target 산출물을 정리한 후 전체 Maven verify에서 214개 테스트의 실패·오류·생략 0건과 BUILD SUCCESS를 확인했다. 로그는 `verification/run-options-docs-push-20261007.log`다.
+
+- 2026-10-07: CLI에 `--loop N`, `--skip-result`를 추가했다. `BatchExecutor`에 전체 목록 반복과 저장 분기를 추가하고 `CurlRunner`에 임시 payload 파일 없이 실행하는 경로를 추가했다. `RunOptionsTest`에서 8개 전송 방식의 본문 전송/압축 복원, 반복 순서, 실패 집계, 출력 미생성, 잘못된 옵션, 중단 및 curl 실행 실패를 검증한다.
+
+- 2026-10-07: LZW 스트림 API와 자원 소유권, COMPRESS 연결, 직접 의존성을 설계 문서와 검증 목록에 반영했다. 당시 검증 기준은 전체 201개 테스트였다.
 - 2026-10-07: 푸시 전 target 산출물을 제거하고 전체 Maven verify를 실행해 201개 테스트와 최종 JAR의 공개 스트림 API 및 이전 클래스 제거를 확인했다. 로그는 `verification/lzw-docs-push-clean-20261007.log`다.
 
 - 2026-10-07: public `LzwInputStream`과 `LzwOutputStream`을 추가하고 COMPRESS 요청 생성에 출력 스트림을 연결했다. 정적 `UnixCompress`를 제거했다. LzwStreamsTest에서 독립 `.Z` 복원, 외부 블록/CLEAR fixture, 분할 I/O, 전체 코드 폭·사전 포화, finish/close·오류·자원 소유권을 검증한다.

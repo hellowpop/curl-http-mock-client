@@ -1,5 +1,12 @@
 # 변경 이력
 
+## 2026-10-07 — 반복 실행과 결과 저장 생략
+
+- CLI `--loop N`으로 전체 설정 요청 목록을 N회 순차 실행합니다. 기본값은 1회이며 양의 정수만 허용합니다. 각 요청마다 새 UUID와 payload를 생성하고 반복 중 실패도 최종 집계에 포함합니다.
+- `--skip-result`로 결과 Excel, 요청/응답 payload, 압축 본문, 헤더, curl 로그와 결과 디렉토리 생성을 생략합니다. 요청은 메모리에서 curl 표준 입력으로 전송하고 응답 본문은 버리며 콘솔 로그와 종료 코드는 유지합니다.
+- 두 옵션은 CLI `--config` 실행에서 조합할 수 있습니다. application·샘플·변환 모드에서는 거부합니다. 기본 저장 모드는 반복 결과를 하나의 Excel과 결과 디렉토리에 기록합니다.
+- RunOptionsTest 13개와 전체 214개 테스트, Maven verify 및 JAR 도움말 확인이 통과했습니다. README/project.md/검증 문서에 옵션과 저장·중단 동작을 반영했습니다.
+
 ## 2026-10-07 — LZW 입력·출력 스트림
 
 - public `LzwInputStream`과 `LzwOutputStream`을 추가했습니다. Unix compress `.Z` 형식의 순차 압축·복원, 분할 I/O, finish/flush/close와 기저 스트림 소유권을 명시했습니다.

@@ -40,6 +40,8 @@ try (var in = new dev.curlmock.LzwInputStream(java.nio.file.Files.newInputStream
 ```powershell
 java -jar target/curl-http-mock-client.jar --config samples/config.yml
 java -jar target/curl-http-mock-client.jar --config samples/config.xlsx
+java -jar target/curl-http-mock-client.jar --config samples/config.yml --loop 3
+java -jar target/curl-http-mock-client.jar --config samples/config.yml --loop 10 --skip-result
 
 java -jar target/curl-http-mock-client.jar --sample-yml sample.yml
 java -jar target/curl-http-mock-client.jar --sample-excel sample.xlsx
@@ -50,7 +52,11 @@ java -jar target/curl-http-mock-client.jar --yml-to-excel sample.yml --output co
 
 모드는 한 번에 하나만 지정합니다. 기존 샘플/변환 파일을 덮어쓰려면 `--overwrite`를 명시합니다. 실제 endpoint에 맞게 `endpointUrl`을 수정한 뒤 실행하세요. 새로 생성하는 샘플은 localhost:8080의 전체 96개 조합입니다. 기존 설정파일은 파일에 적힌 요청 목록을 사용합니다. 이 프로그램은 서버를 시작하지 않습니다.
 
-종료 코드: **0** 성공, **1** HTTP/curl 실행 또는 결과 저장 실패, **2** 옵션/설정 오류. 개별 요청 실패는 파일과 결과 행에 기록하고 다음 요청을 실행합니다. 재시도는 하지 않습니다. 리디렉션은 추가 인수에 `--location`을 지정하면 추적합니다. 200~399 응답은 성공으로 분류합니다.
+`--loop N`은 설정의 전체 요청 목록을 순서대로 N회 반복합니다. 기본값은 1회이며 N은 1 이상의 정수입니다. 요청이 96건이고 `--loop 3`이면 총 288건을 실행합니다. 각 요청마다 새 UUID와 payload를 생성하며 모든 반복 결과를 하나의 Excel 파일과 결과 디렉토리에 저장합니다.
+
+`--skip-result`를 지정하면 Excel 결과와 요청/응답 payload, 압축 본문, 헤더, curl 로그 파일 및 결과 디렉토리를 생성하지 않습니다. 요청 본문은 메모리에서 전송하고 응답 본문은 버립니다. 콘솔 진행 로그와 성공/실패 집계는 유지합니다. `--loop`와 함께 사용할 수 있으며 두 옵션은 `--application`, 샘플 생성, 형식 변환과 함께 사용할 수 없습니다. YAML/Excel 설정의 키가 아닌 CLI 옵션입니다.
+
+종료 코드: **0** 성공, **1** HTTP/curl 실행 또는 결과 저장 실패, **2** 옵션/설정 오류. 개별 요청 실패 후에도 다음 요청과 남은 반복을 실행하며 하나라도 실패하면 종료 코드 1을 반환합니다. 기본 저장 모드에서는 실패를 파일과 결과 행에 기록합니다. 리디렉션은 추가 인수에 `--location`을 지정하면 추적합니다. 200~399 응답은 성공으로 분류합니다.
 
 ### Swing application mode
 
@@ -92,9 +98,9 @@ java -jar target/curl-http-mock-client.jar --application --config samples/config
 
 ### 실행 중 Ctrl-C로 종료
 
-Ctrl-C를 누르면 새 요청을 시작하지 않고 현재 curl을 종료합니다. 완료된 요청과 진행 중이던 요청을 결과 Excel에 기록한 뒤 JVM을 종료합니다. 중단된 요청의 `error`는 `curl execution interrupted by cancellation/shutdown`이며, 해당 UUID의 curl 로그와 생성된 요청/응답 파일도 보존합니다. 아직 시작하지 않은 요청은 결과 행에 포함하지 않습니다.
+Ctrl-C를 누르면 새 요청과 남은 반복을 시작하지 않고 현재 curl을 종료합니다. 기본 저장 모드에서는 완료된 요청과 진행 중이던 요청을 결과 Excel에 기록한 뒤 JVM을 종료합니다. 중단된 요청의 `error`는 `curl execution interrupted by cancellation/shutdown`이며, 해당 UUID의 curl 로그와 생성된 요청/응답 파일도 보존합니다. 아직 시작하지 않은 요청은 결과 행에 포함하지 않습니다. `--skip-result` 실행은 종료 시에도 Excel이나 payload 파일을 저장하지 않습니다.
 
-종료 시 `Shutdown requested; stopping curl and saving results`와 결과 Excel 경로를 출력하고, 저장 완료까지 종료를 기다립니다. 첫 요청 중에 중단해도 그 요청의 결과 행을 저장합니다. Excel은 임시 파일로 작성한 뒤 교체하여 작성 중인 파일이 결과 파일로 노출되지 않도록 합니다. JVM 종료 훅이 실행되지 않는 강제 프로세스 종료나 전원 차단은 이 저장 절차를 실행할 수 없습니다.
+종료 시 curl 중단 안내와 결과 Excel 경로를 출력하고, 실행 정리와 저장 완료까지 종료를 기다립니다. 저장 생략 시 결과 Excel 경로는 null입니다. 기본 저장 모드에서는 첫 요청 중에 중단해도 그 요청의 결과 행을 저장합니다. Excel은 임시 파일로 작성한 뒤 교체하여 작성 중인 파일이 결과 파일로 노출되지 않도록 합니다. JVM 종료 훅이 실행되지 않는 강제 프로세스 종료나 전원 차단은 이 저장 절차를 실행할 수 없습니다.
 
 ## YAML 설정
 
@@ -245,6 +251,8 @@ JSON과 XML은 줄바꿈과 2칸 들여쓰기를 사용하는 pretty 형태로 �
 
 ## 결과 저장
 
+아래 파일 구조는 기본 저장 모드 기준입니다. `--loop N`의 모든 반복을 한 실행 결과에 모으며, `--skip-result`를 지정하면 이 디렉토리와 파일을 생성하지 않습니다.
+
 ```text
 <outputDirectory>/
   yyyyMMdd_HHmmss_SSS_<runUUID>.xlsx
@@ -286,6 +294,6 @@ JSON과 XML은 줄바꿈과 2칸 들여쓰기를 사용하는 pretty 형태로 �
 
 테스트는 12개 CT/PS 조합의 형식과 정확한 크기, 설정 왕복 변환과 오류, 실제 curl의 96개 CT/TE/PS 전송, gzip·deflate·compress·Brotli 복원, chunked 헤더, 바이너리 응답, timeout/연결 거부/HTTP 오류, 링크와 CLI 옵션을 검증합니다. 별도 JVM을 종료시키는 테스트로 첫 요청 중 중단과 완료 요청 후 중단의 결과 저장을 검증합니다.
 
-최신 검증은 **201개 테스트 통과**입니다. LZW 스트림의 분할 I/O·외부 .Z 호환·finish/close와 최종 JAR의 공개 API 왕복 검증을 포함합니다. application 실행 요약의 메모리 편집과 입력 검증, curl 추가 인수, YAML·Excel 변환, 기본값/항목별 timeout, 기존 Excel 호환을 포함합니다. 최종 JAR의 deflate·compress·Brotli 요청 3건도 별도 JVM에서 전송하고 독립 decoder로 원문을 복원했습니다. 자세한 결과는 [검증 문서](docs/verification.md), 변경 이력은 [CHANGELOG](CHANGELOG.md), 구성과 구조 변경 내역은 [프로젝트 기술 문서](project.md)를 참고하세요.
+최신 검증은 **214개 테스트 통과**입니다. 반복 실행 순서·실패 집계, 8개 전송 방식의 저장 생략과 본문 복원, 옵션 검증·중단·curl 실행 실패를 포함합니다. LZW 스트림의 분할 I/O·외부 .Z 호환·finish/close, application 실행 요약의 메모리 편집과 입력 검증, curl 추가 인수, YAML·Excel 변환, 기본값/항목별 timeout, 기존 Excel 호환도 검증합니다. 이전 기능별 최종 JAR 검증 기록을 포함한 자세한 결과는 [검증 문서](docs/verification.md), 변경 이력은 [CHANGELOG](CHANGELOG.md), 구성과 구조 변경 내역은 [프로젝트 기술 문서](project.md)를 참고하세요.
 
 라이브러리는 공식 배포 정보를 확인해 고정했습니다: [picocli 4.7.7](https://picocli.info/), [Jackson 2.21.7 LTS](https://github.com/FasterXML/jackson/wiki/Jackson-Release-2.21), [Apache POI 5.5.1](https://poi.apache.org/), [Logback 1.6.5](https://logback.qos.ch/news.html). POI의 Log4j API 로그는 `log4j-to-slf4j`를 통해 Logback으로 모읍니다. curl 전송 옵션은 [공식 man page](https://curl.se/docs/manpage.html)를 기준으로 구성했습니다.
