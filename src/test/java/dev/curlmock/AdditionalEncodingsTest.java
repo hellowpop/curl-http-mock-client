@@ -83,7 +83,7 @@ class AdditionalEncodingsTest {
         new java.util.Random(42).nextBytes(allBytes);
         for (byte[] input : List.of(new byte[0], new byte[]{(byte) 255}, new byte[20000], allBytes)) {
             var output = new java.io.ByteArrayOutputStream();
-            UnixCompress.write(input, output);
+            try (var compressed = new LzwOutputStream(output)) { compressed.write(input); }
             assertArrayEquals(input, decode("COMPRESS", output.toByteArray()));
         }
     }

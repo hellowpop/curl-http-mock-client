@@ -155,6 +155,8 @@ curl 정상 종료 시 전체 본문이 유효한 JSON이면 객체와 배열을
 
 ## 검증 및 전달 기준
 
+추가한 public `LzwOutputStream`은 Unix `.Z` 비블록 형식의 9~16비트 코드를 순차 출력하고 COMPRESS 요청 생성에서도 사용한다. `finish()`는 기저 스트림을 닫지 않고 반복 호출할 수 있으며 이후 write는 거부한다. `flush()`는 미완성 prefix/코드 그룹을 유지하고 `close()`가 압축 마무리와 기저 스트림 닫기를 수행한다. `LzwInputStream`은 Commons Compress 1.28.0 decoder로 비블록/블록/CLEAR를 순차 복원한다. 헤더와 코드 폭을 검증하고 decoder 메모리를 1 MiB로 제한한다. 닫기 자원 소유권과 IOException을 표준 I/O API에 맞추며 raw LZW/GIF/TIFF와 구분한다. 구체적인 계약과 예제는 project.md에 기록한다. 정적 UnixCompress는 제거하고 Commons Compress 직접 의존성 및 기존 commons-codec 1.20.0을 명시한다.
+
 1. 모든 CT/PS 조합의 정확한 바이트 크기와 JSON/XML/form/multipart의 유효성을 검증한다.
 2. 모든 CT/TE/PS 설정의 YAML↔Excel round-trip과 잘못된 설정 거부를 검증한다.
 3. JDK 로컬 HTTP 서버와 실제 curl로 96개 조합을 실행하여 경로, MIME, 수신 본문 크기, gzip/deflate/compress/Brotli 복원, chunked 헤더, 상태 및 결과 링크를 검증한다. 실제 청크 크기의 일치는 검증 조건이 아니다.

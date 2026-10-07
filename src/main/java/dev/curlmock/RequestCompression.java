@@ -19,14 +19,11 @@ final class RequestCompression {
             catch (UnsatisfiedLinkError e) { throw new IOException("Brotli native library is unavailable on this platform", e); }
         }
         try (var file = Files.newOutputStream(path)) {
-            if (encoding == TransferEncoding.COMPRESS) {
-                UnixCompress.write(body, file);
-                return;
-            }
             try (var compressed = switch (encoding) {
                 case GZ -> new GZIPOutputStream(file);
                 case DEFLATE -> new DeflaterOutputStream(file);
                 case BR -> new BrotliOutputStream(file, new Encoder.Parameters().setQuality(4));
+                case COMPRESS -> new LzwOutputStream(file);
                 default -> throw new IllegalArgumentException("Not a compressed encoding: " + encoding);
             }) { compressed.write(body); }
         }

@@ -20,6 +20,21 @@ java -jar target/curl-http-mock-client.jar --help
 
 빌드 결과는 모든 Java 의존성을 포함하는 `target/curl-http-mock-client.jar`입니다. curl 자체는 JAR에 포함되지 않습니다. Maven 테스트는 실제 curl과 로컬 HTTP 서버를 사용합니다.
 
+## LZW 스트림 API
+
+`dev.curlmock.LzwOutputStream`과 `dev.curlmock.LzwInputStream`으로 Unix compress `.Z` 데이터를 순차 압축·복원할 수 있습니다. COMPRESS 요청도 같은 출력 스트림을 사용합니다. 출력은 비블록 모드의 9~16비트 LZW이며 입력은 블록 모드와 CLEAR 코드도 지원합니다. raw LZW 또는 GIF/TIFF 형식과는 구분됩니다.
+
+```java
+try (var out = new dev.curlmock.LzwOutputStream(java.nio.file.Files.newOutputStream(java.nio.file.Path.of("payload.Z")))) {
+    out.write(payloadBytes);
+}
+try (var in = new dev.curlmock.LzwInputStream(java.nio.file.Files.newInputStream(java.nio.file.Path.of("payload.Z")))) {
+    in.transferTo(destination);
+}
+```
+
+`finish()`는 압축 마무리 후 기저 스트림을 열어 두며 이후 write는 거부합니다. `flush()`는 미완성 코드 그룹을 유지하므로 모든 데이터를 출력하려면 finish 또는 close를 호출합니다. close는 기저 스트림도 닫습니다. 입력의 mark/reset은 지원하지 않으며 두 클래스는 스레드 안전하지 않습니다. `.Z`는 checksum과 본문 길이가 없어 일부 본문 잘림을 식별할 수 없습니다. 자세한 계약은 [project.md](project.md)의 LZW 스트림 API를 참고하세요.
+
 ## 실행 및 설정 파일 옵션
 
 ```powershell
@@ -271,6 +286,6 @@ JSON과 XML은 줄바꿈과 2칸 들여쓰기를 사용하는 pretty 형태로 �
 
 테스트는 12개 CT/PS 조합의 형식과 정확한 크기, 설정 왕복 변환과 오류, 실제 curl의 96개 CT/TE/PS 전송, gzip·deflate·compress·Brotli 복원, chunked 헤더, 바이너리 응답, timeout/연결 거부/HTTP 오류, 링크와 CLI 옵션을 검증합니다. 별도 JVM을 종료시키는 테스트로 첫 요청 중 중단과 완료 요청 후 중단의 결과 저장을 검증합니다.
 
-최신 검증은 **194개 테스트 통과**입니다. application 실행 요약의 메모리 편집과 입력 검증, curl 추가 인수, YAML·Excel 변환, 기본값/항목별 timeout, 기존 Excel 호환을 포함합니다. 최종 JAR의 deflate·compress·Brotli 요청 3건도 별도 JVM에서 전송하고 독립 decoder로 원문을 복원했습니다. 자세한 결과는 [검증 문서](docs/verification.md), 변경 이력은 [CHANGELOG](CHANGELOG.md), 구성과 구조 변경 내역은 [프로젝트 기술 문서](project.md)를 참고하세요.
+최신 검증은 **201개 테스트 통과**입니다. LZW 스트림의 분할 I/O·외부 .Z 호환·finish/close와 최종 JAR의 공개 API 왕복 검증을 포함합니다. application 실행 요약의 메모리 편집과 입력 검증, curl 추가 인수, YAML·Excel 변환, 기본값/항목별 timeout, 기존 Excel 호환을 포함합니다. 최종 JAR의 deflate·compress·Brotli 요청 3건도 별도 JVM에서 전송하고 독립 decoder로 원문을 복원했습니다. 자세한 결과는 [검증 문서](docs/verification.md), 변경 이력은 [CHANGELOG](CHANGELOG.md), 구성과 구조 변경 내역은 [프로젝트 기술 문서](project.md)를 참고하세요.
 
 라이브러리는 공식 배포 정보를 확인해 고정했습니다: [picocli 4.7.7](https://picocli.info/), [Jackson 2.21.7 LTS](https://github.com/FasterXML/jackson/wiki/Jackson-Release-2.21), [Apache POI 5.5.1](https://poi.apache.org/), [Logback 1.6.5](https://logback.qos.ch/news.html). POI의 Log4j API 로그는 `log4j-to-slf4j`를 통해 Logback으로 모읍니다. curl 전송 옵션은 [공식 man page](https://curl.se/docs/manpage.html)를 기준으로 구성했습니다.

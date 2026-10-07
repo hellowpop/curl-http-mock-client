@@ -19,7 +19,8 @@ Java 21 CLI 또는 `--application` Swing 화면에서 외부 curl 프로세스�
 | `PayloadGenerator` | 정확한 크기의 JSON/XML/form/multipart 본문 생성 |
 | `CurlArguments` | 추가 curl 옵션의 종류, 인수 개수 및 충돌 검증 |
 | `CurlRunner` | curl 인수 구성, ProcessBuilder 실행, 본문 전송 및 응답/로그 수집 |
-| `RequestCompression`, `UnixCompress` | gzip·zlib deflate·Unix LZW compress·Brotli 전송 본문 생성 |
+| `RequestCompression` | gzip·zlib deflate·Unix LZW compress·Brotli 전송 본문 생성 |
+| `LzwInputStream`, `LzwOutputStream` | 재사용 가능한 Unix `.Z` LZW 순차 복원·압축 스트림 |
 | `JsonResponse` | 유효한 JSON 응답의 스트리밍 pretty 저장, 숫자/중복 필드 보존 |
 | `BatchExecutor`, `RunControl` | 순차 실행, Ctrl-C 취소와 부분 결과 저장 |
 | `ResultWorkbook`, `ExcelStyles` | 결과 Excel과 파일 링크, 서식 |
@@ -78,11 +79,28 @@ Jackson 스트리밍 parser/generator로 임시 파일에 작성하며 숫자는
 
 `TransferEncoding`의 기존 NA/GZ/CSB/CCB/CLB에 DEFLATE, COMPRESS, BR을 추가했다. 설정과 application 그리드 모두 지원한다. 설정 입력은 대소문자를 구분하지 않으며 Excel/YAML 출력과 요청 경로는 대문자 enum 이름을 유지한다. 새 생성 샘플은 4 CT × 8 TE × 3 PS = 96건이다. 기존 설정파일의 케이스는 파일에 적힌 항목만 사용한다.
 
-GZ/DEFLATE/COMPRESS/BR은 `Content-Encoding: gzip/deflate/compress/br`과 압축 본문의 Content-Length로 전송한다. CSB/CCB/CLB의 HTTP chunked 처리와 구분한다. DEFLATE는 zlib wrapper를 포함한 `DeflaterOutputStream`, COMPRESS는 Unix `.Z` LZW(비블록 모드, 코드 폭 9~16비트), BR은 [Brotli4j 1.23.0](https://github.com/hyperxpro/Brotli4j)의 Brotli encoder(quality 4)를 사용한다. `UnixCompress`는 코드 폭 변경 시 8개 코드 그룹 정렬과 사전 포화 시 기존 사전 유지를 처리한다. Commons Compress의 독립 `.Z` decoder로 결과를 검증한다.
+GZ/DEFLATE/COMPRESS/BR은 `Content-Encoding: gzip/deflate/compress/br`과 압축 본문의 Content-Length로 전송한다. CSB/CCB/CLB의 HTTP chunked 처리와 구분한다. DEFLATE는 zlib wrapper를 포함한 `DeflaterOutputStream`, COMPRESS는 Unix `.Z` LZW(비블록 모드, 코드 폭 9~16비트), BR은 [Brotli4j 1.23.0](https://github.com/hyperxpro/Brotli4j)의 Brotli encoder(quality 4)를 사용한다. `LzwOutputStream`은 코드 폭 변경 시 8개 코드 그룹 정렬과 사전 포화 시 기존 사전 유지를 처리한다. Commons Compress의 독립 `.Z` decoder로 결과를 검증한다.
 
 `RequestCompression`은 원문 `request_payload.txt`와 별도로 실제 전송 본문을 `.gz`, `.deflate`, `.Z`, `.br`에 기록한다. `CurlRunner`는 enum의 헤더값과 확장자를 사용해 압축 파일과 curl 헤더를 연결한다. Payload 크기는 압축 전 원문의 정확한 크기이며 전송 크기는 달라진다. 설정파일 저장 경로는 호출하지 않으므로 application에서 바꾼 값은 기존처럼 현재 실행 동안만 유지된다.
 
 Brotli4j의 Windows·Linux·macOS x64/ARM64 네이티브 라이브러리를 runtime 의존성으로 명시하고 shaded JAR에 함께 포함한다. 기존 ServicesResourceTransformer가 플랫폼 provider를 합치며 실행 환경에 맞는 라이브러리를 선택한다. 그 외 아키텍처에서는 Brotli4j가 제공하는 해당 native 의존성을 추가해 빌드한다. Windows에서는 Brotli4j가 요구하는 Microsoft Visual C++ Redistributable이 필요하다. 네이티브 라이브러리 로딩 실패는 IOException으로 전달해 화면의 실행 오류와 기존 부분 결과 저장 흐름을 사용한다. 실제 압축·전송 및 패키지 실행은 Windows x64에서 검증한다.
+
+### LZW 스트림 API
+
+`dev.curlmock.LzwOutputStream(OutputStream)`은 입력 전체를 모으지 않고 `write(int)` 또는 `write(byte[], offset, length)`를 순차 압축한다. 생성 시 `.Z` 헤더를 쓰고 코드 사전은 최대 65,536개로 제한한다. `finish()`는 마지막 코드와 부분 그룹을 출력하고 여러 번 호출해도 결과가 바뀌지 않는다. 기저 스트림은 닫지 않지만 이후 write는 IOException이다. `flush()`는 이미 출력한 바이트를 기저 스트림에 flush하며 미완성 prefix/최대 16바이트 코드 그룹을 유지한다. `close()`는 finish 후 기저 스트림을 닫고, 마무리와 닫기에서 둘 다 실패하면 닫기 오류를 suppressed exception으로 보존한다.
+
+`dev.curlmock.LzwInputStream(InputStream)`은 Commons Compress 1.28.0의 `ZCompressorInputStream`을 통해 Unix `.Z`를 순차 복원한다. 비블록/블록 모드와 CLEAR 사전 초기화를 지원한다. 헤더의 magic, 코드 폭 9~16비트, 예약 비트를 검증하고 디코더 메모리를 1 MiB로 제한한다. 잘린 헤더, 잘못된 코드 등 디코더가 식별하는 형식 오류는 IOException이다. `.Z` 자체에는 본문 길이·checksum이 없어 일부 본문 잘림은 정상 EOF와 구분할 수 없다. raw LZW, GIF/TIFF LZW 등 다른 컨테이너 형식은 지원하지 않는다.
+
+두 클래스는 public이며 스레드 안전하지 않다. InputStream은 단건·분할 read, skip, available을 지원하고 mark/reset은 지원하지 않는다. close는 입력 소스를 닫으며 반복 close는 아무 작업도 하지 않는다. 닫힌 스트림의 read/write/flush는 IOException이다. COMPRESS 요청 생성은 `LzwOutputStream`을 사용한다. 이전 `UnixCompress` 정적 구현은 제거했다. Commons Compress를 직접 의존성으로 선언하고 기존 codec 1.20.0을 dependencyManagement로 유지한다.
+
+```java
+try (var compressed = new LzwOutputStream(Files.newOutputStream(Path.of("payload.Z")))) {
+    compressed.write(payload);
+}
+try (var restored = new LzwInputStream(Files.newInputStream(Path.of("payload.Z")))) {
+    restored.transferTo(destination);
+}
+```
 
 ## curl 추가 파라미터
 
@@ -124,6 +142,12 @@ java -jar target/curl-http-mock-client.jar --config samples/config.yml --curl-ar
 `--location`을 지정하면 리디렉션을 추적하고 `--compressed`를 지정하면 응답 압축을 해제한다. 기본 동작에는 두 옵션을 적용하지 않는다. curl 옵션 의미는 [공식 man page](https://curl.se/docs/manpage.html)를 따른다.
 
 ## 구조 변경 내역
+
+- 2026-10-07: LZW 스트림 API와 자원 소유권, COMPRESS 연결, 직접 의존성을 설계 문서와 검증 목록에 반영했다. 현재 검증 기준은 전체 201개 테스트이며 과거 기능별 검증 수는 이력으로 유지한다.
+- 2026-10-07: 푸시 전 target 산출물을 제거하고 전체 Maven verify를 실행해 201개 테스트와 최종 JAR의 공개 스트림 API 및 이전 클래스 제거를 확인했다. 로그는 `verification/lzw-docs-push-clean-20261007.log`다.
+
+- 2026-10-07: public `LzwInputStream`과 `LzwOutputStream`을 추가하고 COMPRESS 요청 생성에 출력 스트림을 연결했다. 정적 `UnixCompress`를 제거했다. LzwStreamsTest에서 독립 `.Z` 복원, 외부 블록/CLEAR fixture, 분할 I/O, 전체 코드 폭·사전 포화, finish/close·오류·자원 소유권을 검증한다.
+- 2026-10-07: LZW 스트림 변경 후 전체 201개 테스트와 Maven verify가 통과했다. 최종 JAR의 공개 API로 100,000바이트 분할 압축·복원도 확인했다. 로그는 `verification/lzw-streams-verify.log`다.
 
 - 2026-10-07: 문서의 현재 동작 설명을 실행 요약 편집·추가 압축 방식·96건 전체 조합 샘플에 맞췄다. `RuntimeSummary` 구성 요소와 검증 범위를 명시하고 CLI 샘플 도움말을 전체 preset 조합 설명으로 변경했다.
 - 2026-10-07: 문서 정리 후 Java 21 Maven verify에서 194개 테스트의 실패·오류·생략 0건을 확인했다. 전체 조합 샘플의 동등성·중복 없음과 최종 JAR의 세 압축 방식 요청을 다시 검증했다. 로그는 `verification/docs-push-20261007.log`에 기록한다.

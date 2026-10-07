@@ -1,5 +1,13 @@
 # 변경 이력
 
+## 2026-10-07 — LZW 입력·출력 스트림
+
+- public `LzwInputStream`과 `LzwOutputStream`을 추가했습니다. Unix compress `.Z` 형식의 순차 압축·복원, 분할 I/O, finish/flush/close와 기저 스트림 소유권을 명시했습니다.
+- 입력은 9~16비트 비블록/블록 모드와 CLEAR를 지원하고 잘못된 헤더·코드를 IOException으로 처리합니다. 출력은 기존 비블록 `.Z` 형식을 유지합니다.
+- COMPRESS 요청을 `LzwOutputStream`으로 생성하도록 변경하고 `UnixCompress`를 제거했습니다. Commons Compress 직접 의존성과 기존 commons-codec 버전을 명시했습니다.
+- LzwStreamsTest 7개와 전체 201개 테스트, Maven verify 및 최종 JAR의 100,000바이트 스트림 왕복 검증이 통과했습니다.
+- 문서·설계·검증 목록을 정리하고 기존 target 산출물을 제거한 푸시 전 전체 빌드도 201개 테스트와 함께 통과했습니다.
+
 ## 2026-10-07 — 전체 조합 샘플과 실행 요약 편집 문서
 
 - `samples/config-all-cases.yml`과 `samples/config-all-cases.xlsx`에 4 CT × 8 TE × 3 기본 크기의 전체 96개 조합을 추가했습니다. YAML/Excel 값과 순서의 동등성, 중복 없음과 모든 조합의 존재를 검증했습니다.

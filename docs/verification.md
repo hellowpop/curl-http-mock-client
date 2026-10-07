@@ -1,5 +1,19 @@
 # 검증 결과
 
+## LZW 문서 정리와 푸시 전 검증 (2026-10-07)
+
+README/project.md/설계 문서/CHANGELOG와 현재 테스트 목록을 LZW 스트림 API 및 COMPRESS 연결에 맞췄다. 새 스트림의 finish/flush/close, 기저 스트림 소유권, 형식·메모리 제한과 Commons Compress 직접 의존성을 기록했다.
+
+푸시 전 Maven verify에서 201개 테스트의 실패·오류·생략 0건을 확인했다. 반복 shade로 이전 JAR 내용이 중복 포함되는 경고가 있어 프로젝트 내부 target 산출물을 제거한 후 다시 전체 verify를 실행했고 같은 201개 테스트와 BUILD SUCCESS를 확인했다. 최종 로그는 `verification/lzw-docs-push-clean-20261007.log`다. 새 JAR의 public LZW API로 100,000바이트 왕복을 확인하고 제거한 UnixCompress 클래스가 JAR에 남지 않은 것도 검사했다. JAR·캐시·검증 파일은 기존 ignore 규칙에 따라 커밋에서 제외한다.
+
+## LZW 입력·출력 스트림 (2026-10-07)
+
+새 스트림이 없는 상태에서 실패를 확인한 뒤 구현했다. 관련 12개 테스트와 전체 201개 테스트에서 실패·오류·생략 0건 및 Maven verify BUILD SUCCESS를 확인했다. 전체 로그는 `verification/lzw-streams-verify.log`다.
+
+LzwStreamsTest 7개에서 empty/단일 byte/반복/300,000바이트 난수를 분할 write·flush로 압축하고 독립 Commons Compress decoder와 LzwInputStream으로 복원했다. 코드 폭 증가와 사전 포화, 손으로 구성한 외부 `.Z` 비블록/블록/CLEAR fixture, skip/분할 read/EOF/0길이 read, 헤더 및 잘못된 코드, finish 반복·닫기·인수 범위·기저 스트림 소유권·마무리/닫기 오류 보존을 검증했다. 기존 AdditionalEncodingsTest와 96개 실제 HTTP 요청 조합도 통과했다.
+
+최종 shaded JAR에 포함된 public API만 사용하여 100,000바이트 난수의 분할 write/flush/finish와 스트림 복원을 별도 Java 프로세스에서 검증했다. 생성 검증 코드는 `verification/LzwJarSmoke.java`이며 Git 추적에서 제외한다.
+
 ## 문서 정리와 푸시 전 최종 검증 (2026-10-07)
 
 실행 요약 편집, 추가 압축 방식, 96건 전체 조합 샘플과 플랫폼별 Brotli 라이브러리 설명을 README/project.md/설계 문서/CHANGELOG에 반영했다. CLI 샘플 생성 도움말은 고정 60건 문구를 제거하고 전체 preset 조합 생성으로 표시한다.
@@ -18,7 +32,7 @@ RuntimeSummaryTest에서 단건·선택·전체 실행의 편집값 적용, 중�
 
 ## 자동 테스트
 
-현재 실행 요약 편집·추가 압축 방식 구현의 `mvn verify` 결과: **BUILD SUCCESS**, **194개 테스트 / 실패 0 / 오류 0 / 생략 0**. 최신 검증 로그는 `verification/docs-push-20261007.log`입니다. 아래 기능별 이력의 테스트 수와 JAR 실행 기록은 각 변경을 검증한 당시의 결과입니다. 검증용 `verification/` 디렉토리는 Git 추적에서 제외합니다. Swing 컴포넌트 동작과 화면 렌더링은 headless 환경에서 검증했으며 실제 데스크톱의 팝업 창 조작은 포함하지 않았습니다.
+현재 LZW 스트림·실행 요약 편집·추가 압축 방식 구현의 `mvn verify` 결과: **BUILD SUCCESS**, **201개 테스트 / 실패 0 / 오류 0 / 생략 0**. 기능 검증 로그는 `verification/lzw-streams-verify.log`입니다. 아래 기능별 이력의 테스트 수와 JAR 실행 기록은 각 변경을 검증한 당시의 결과입니다. 검증용 `verification/` 디렉토리는 Git 추적에서 제외합니다. Swing 컴포넌트 동작과 화면 렌더링은 headless 환경에서 검증했으며 실제 데스크톱의 팝업 창 조작은 포함하지 않았습니다.
 
 - 설정 테스트 56개: YAML/Excel 왕복 변환, 경로 보존, 중복/누락/수식/잘못된 값, 숫자 enum과 scalar 자동 변환 거부, 덮어쓰기 보호, 콤마 값 조합/공백/중복/변환/잘못된 토큰, preset과 직접 크기 혼용 및 변환, timeout 기본값과 항목별 값 보존, 잘못된 항목별 timeout 거부, 기존 Excel 3열 호환.
 - payload 테스트 21개: 12개 preset CT/PS 조합과 8개 직접 크기 CT/PS 조합의 정확한 byte 크기와 형식 유효성, 무작위 데이터.
@@ -35,6 +49,7 @@ RuntimeSummaryTest에서 단건·선택·전체 실행의 편집값 적용, 중�
 - 전체/선택실행 테스트 3개: 모든 케이스의 순차 실행, HTTP 실패 후 계속 실행, 진행 로그·완료 요약·결과 버튼과 Excel 행, 중복 시작 방지, 초기 실행 오류 처리, 검색 결과만 중복과 순서를 보존하여 실행하고 curl 추가 인수를 전달.
 - 실행 요약 편집 테스트 2개: 중복 케이스 분리, 단건·전체·검색 결과 실행에 변경값 전달, 활성 셀 확정, 잘못된 입력의 원자성, 원본 설정파일 보존·재로딩, 경로 편집으로 검색 결과에서 제외되는 요청의 단건 실행.
 - 추가 압축 테스트 5개: 소문자 설정/Excel 변환/그리드 선택, deflate·compress·Brotli의 1 MiB 실제 업로드·Content-Encoding·Content-Length·저장 본문·독립 복원, Unix .Z 빈 입력/단일 byte/반복/난수 경계값.
+- LZW 스트림 테스트 7개: 분할 read/write/flush, 독립 decoder 복원과 코드 폭 증가·사전 포화, 외부 비블록/블록/CLEAR fixture, skip/EOF/0길이 read, 잘못된 헤더/코드, finish 반복·close 소유권·인수 범위·마무리와 닫기 오류 보존.
 
 독립적인 코드 리뷰에서 발견한 입력 자동 변환, 응답 헤더 인코딩, malformed Excel 오류 분류와 빌드 Java 환경 복원 문제를 먼저 재현한 뒤 수정했습니다. 남겨 둔 리뷰 항목은 없습니다.
 
