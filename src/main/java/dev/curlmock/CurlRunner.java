@@ -53,7 +53,7 @@ final class CurlRunner {
             command.addAll(List.of("--data-binary", skipResult ? "@-" : "@" + wireBody));
         }
         if (!skipResult) command.addAll(List.of("--dump-header", responseHeadersFile.toString()));
-        command.addAll(config.curlArguments());
+        RequestHeaders.append(command, config, type);
         if (!skipResult) Files.writeString(log, "uuid: " + uuid + "\nendpoint: " + url + "\nrequest entity file: " + wireBody
                 + "\nresponse entity file: " + response + "\nstdin block bytes: " + type.transferEncoding().blockBytes()
                 + "\nCommand arguments (JSON): " + new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(command)

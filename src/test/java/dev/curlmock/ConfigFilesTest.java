@@ -100,7 +100,7 @@ class ConfigFilesTest {
         ConfigFiles.write(excel, ClientConfig.sample(), false);
         try (var book = new XSSFWorkbook(Files.newInputStream(excel))) {
             for (var row : book.getSheet("PayloadTypes")) {
-                for (int i = 4; i >= 3; i--) if (row.getCell(i) != null) row.removeCell(row.getCell(i));
+                for (int i = row.getLastCellNum() - 1; i >= 3; i--) if (row.getCell(i) != null) row.removeCell(row.getCell(i));
             }
             try (var out = Files.newOutputStream(excel)) { book.write(out); }
         }

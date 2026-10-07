@@ -12,13 +12,14 @@ import javax.swing.table.TableCellEditor;
 /** Editable draft of session settings; creates a validated snapshot without file I/O. */
 final class RuntimeSummary extends JTable {
     private static final ObjectMapper JSON = new ObjectMapper()
+            .enable(com.fasterxml.jackson.core.JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
             .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
     private final DefaultTableModel values;
 
     RuntimeSummary() {
         values = new DefaultTableModel(new String[]{"항목", "실행값", "적용 범위"}, 0) {
             @Override public boolean isCellEditable(int row, int column) {
-                return isEnabled() && column == 1 && row < 10;
+                return isEnabled() && column == 1 && row < 12;
             }
         };
         setModel(values);
@@ -29,7 +30,7 @@ final class RuntimeSummary extends JTable {
         getColumnModel().getColumn(1).setPreferredWidth(380);
         getColumnModel().getColumn(2).setPreferredWidth(90);
         putClientProperty("terminateEditOnFocusLost", true);
-        setToolTipText("값을 편집한 뒤 업데이트 또는 실행을 누르세요. Curl arguments는 JSON 문자열 배열입니다.");
+        setToolTipText("값을 편집한 뒤 업데이트 또는 실행을 누르세요. Curl arguments는 JSON 문자열 배열, Headers는 JSON 문자열 객체입니다.");
     }
 
     @Override public TableCellEditor getCellEditor(int row, int column) {
@@ -55,6 +56,8 @@ final class RuntimeSummary extends JTable {
         add("Curl", config.curlExecutable(), "전체 요청");
         add("Curl arguments", JSON.valueToTree(config.curlArguments()).toString(), "전체 요청");
         add("Output", config.outputDirectory(), "전체 요청");
+        add("Common headers", JSON.valueToTree(config.headers()).toString(), "전체 요청");
+        add("Request headers", JSON.valueToTree(type.headers()).toString(), "선택 요청");
         add("URL", config.endpointUrl().replaceAll("/+$", "") + type.path(), "자동 계산");
         add("Payload bytes", type.payloadSize().bytes(), "자동 계산");
     }
@@ -68,7 +71,7 @@ final class RuntimeSummary extends JTable {
         var type = new PayloadType(ContentType.parse(text(2)), TransferEncoding.parse(text(3)),
                 PayloadSize.parse(text(4)), connect == original.effectiveConnectTimeoutSeconds(config)
                 ? original.connectTimeoutSeconds() : Integer.valueOf(connect), request == original.effectiveRequestTimeoutSeconds(config)
-                ? original.requestTimeoutSeconds() : Integer.valueOf(request));
+                ? original.requestTimeoutSeconds() : Integer.valueOf(request), headers(11));
         List<String> arguments = new ArrayList<>();
         try {
             var node = JSON.readTree(text(8));
@@ -83,12 +86,23 @@ final class RuntimeSummary extends JTable {
         var types = new ArrayList<>(config.payloadTypes());
         types.set(index, type);
         var updated = new ClientConfig(text(1), text(0).toUpperCase(Locale.ROOT), text(7),
-                config.connectTimeoutSeconds(), config.requestTimeoutSeconds(), text(9), List.copyOf(types), arguments);
+                config.connectTimeoutSeconds(), config.requestTimeoutSeconds(), text(9), List.copyOf(types), arguments, headers(10));
         updated.validate();
         java.nio.file.Path.of(updated.outputDirectory());
         return updated;
     }
 
     private void add(String label, Object value, String scope) { values.addRow(new Object[]{label, value, scope}); }
+    private java.util.Map<String, String> headers(int row) {
+        try {
+            var node = JSON.readTree(text(row));
+            var input = JSON.createObjectNode();
+            input.set("headers", node);
+            RequestHeaders.validateInput(input);
+            return JSON.convertValue(node, new com.fasterxml.jackson.core.type.TypeReference<java.util.Map<String, String>>() {});
+        } catch (java.io.IOException e) {
+            throw new IllegalArgumentException("Headers는 JSON 문자열 객체이어야 합니다.", e);
+        }
+    }
     private String text(int row) { return String.valueOf(values.getValueAt(row, 1)).strip(); }
 }

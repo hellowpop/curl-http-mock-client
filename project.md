@@ -13,7 +13,8 @@ Java 21 CLI 또는 `--application` Swing 화면에서 외부 curl 프로세스�
 | `RequestListRenderer` | 원래 케이스 번호 유지, 검색어 일치 부분 강조 |
 | `RequestSearch` | 공백/콤마 검색 토큰 분리 규칙 공유 |
 | `ResultPane`, `FileContentPopup` | 결과 하단 파일 이름 버튼, 비동기 텍스트/Excel 내용 팝업 |
-| `ClientConfig`, `PayloadType` | 공통 설정, 기본값, 요청별 timeout |
+| `ClientConfig`, `PayloadType` | 공통 설정, 기본값, 요청별 timeout 및 공통·개별 헤더 |
+| `RequestHeaders` | 헤더 형식 검증, 불변 복사, 대소문자 무시 병합, curl 헤더 인수 구성 |
 | `ConfigFiles`, `ExcelConfigCodec` | YAML·Excel 읽기/쓰기, 변환, 입력 형식 검증 |
 | `PayloadTypesExpansion`, `PayloadSize` | CT×TE×PS 조합 확장과 직접 크기 해석 |
 | `PayloadGenerator` | 정확한 크기의 JSON/XML/form/multipart 본문 생성 |
@@ -25,6 +26,16 @@ Java 21 CLI 또는 `--application` Swing 화면에서 외부 curl 프로세스�
 | `BatchExecutor`, `RunControl` | 전체 목록 반복·순차 실행, 저장 정책, Ctrl-C 취소와 부분 결과 저장 |
 | `ResultWorkbook`, `ExcelStyles` | 결과 Excel과 파일 링크, 서식 |
 
+## 공통·개별 요청 헤더
+
+`ClientConfig.headers`와 `PayloadType.headers`는 불변 `Map<String, String>`이다. 기존 생성자를 유지하며 생략한 설정은 빈 맵을 사용한다. YAML 최상위 `headers`와 각 `payloadTypes[].headers`는 문자열 값 객체만 허용한다. Excel `Settings.headers` 값 및 선택적 `PayloadTypes.headers` 열은 JSON 객체를 저장하며 빈 셀은 빈 맵이다. 기존 3열·5열 Excel도 지원한다. 새 Excel 출력은 두 timeout 열 다음에 `headers` 열을 기록한다.
+
+`RequestHeaders`는 이름의 HTTP 토큰 형식, 대소문자 무시 중복 및 값의 NUL/CR/LF를 검증한다. 프로그램 관리 헤더(`Content-Type`, `Content-Length`, `Transfer-Encoding`, `Content-Encoding`, `Expect`)는 기존 curl 인수와 동일하게 재정의하지 못한다. 공통 맵을 복사한 뒤 동일 이름의 공통 키를 제거하고 개별 키를 넣어 한 번만 전송한다. `headers`에 있는 이름은 기존 `curlArguments` 및 추가 CLI `--header`/`-H`에서 제외하여 구조화된 설정을 우선한다. 다른 이름 및 proxy 헤더는 기존 인수 순서를 유지한다. 빈 값은 curl의 `Name;` 형식으로 전송한다.
+
+조합 확장은 개별 맵을 보존하고, 출력 디렉토리 변경·CLI 인수 추가·단건 및 검색 선택 실행에서도 공통 맵을 보존한다. `RuntimeSummary`의 `Common headers`와 `Request headers` 행은 JSON 객체를 편집한다. 검증된 snapshot을 만들 때 전체 요청의 공통 맵과 선택 항목의 개별 맵을 적용한다. 원본 파일은 변경하지 않는다.
+
+예시는 [samples/config-headers.yml](samples/config-headers.yml)에 있다. `HeadersTest`는 YAML/Excel 왕복·조합 확장, 두 범위의 잘못된 값 거부, 실제 curl의 중복 없는 개별 우선 전송·빈 값, 화면 편집 후 단건·선택·전체 실행과 원본 파일 보존을 검증한다.
+
 ## Application mode
 
 `Main`의 `--application` 옵션은 `--config` 실행 경로에서 검증된 YAML/Excel 설정을 `ApplicationPanel`에 전달한다. 샘플/변환 모드와는 함께 사용할 수 없다. 추가 `--curl-arg`는 CLI와 같은 순서로 병합된다. 창은 Swing EDT에서 열고, GUI 시작 성공 시 `Main.main`은 `System.exit`를 호출하지 않아 창을 유지한다. headless 환경에서는 실행 오류로 종료한다.
@@ -35,7 +46,7 @@ Java 21 CLI 또는 `--application` Swing 화면에서 외부 curl 프로세스�
 
 `RuntimeSummary`는 `항목 / 실행값 / 적용 범위` 열을 가진 편집 가능한 `JTable`이다. Method는 POST/PUT/PATCH, Content-Type과 Transfer-Encoding은 콤보박스로 선택한다. Payload는 SM/CM/LG 또는 4K·1M 같은 기존 크기 형식을 사용한다. timeout은 초 단위 양의 정수이며, 기존 상속값과 같은 값을 유지하면 null 상속 상태도 보존한다. URL과 Payload bytes는 자동 계산되는 읽기 전용 행이다. Endpoint URL은 요청 경로가 붙기 전의 base URL이다. Curl arguments는 JSON 문자열 배열로 입력하며 기존 지원 옵션 검증을 적용한다.
 
-Method, Endpoint URL, Curl, Curl arguments, Output은 전체 요청의 공통값이다. Content-Type, Transfer-Encoding, Payload, 두 timeout은 선택 요청에만 적용한다. `업데이트` 또는 실행 버튼은 편집 중인 셀을 확정하고 전체 입력을 검증한 후 새 `ClientConfig`와 요청 목록을 메모리에 반영한다. 오류가 있으면 기존 설정을 그대로 유지하고 그리드 아래 입력 오류를 표시하며 실행하지 않는다. 업데이트한 경로는 검색과 목록에도 반영한다. 동일한 설정의 중복 케이스는 원본 인덱스로 구분하여 선택한 케이스만 변경한다. 업데이트 전 다른 요청을 선택하면 미적용 입력은 버린다.
+Method, Endpoint URL, Curl, Curl arguments, Output, Common headers는 전체 요청의 공통값이다. Content-Type, Transfer-Encoding, Payload, 두 timeout, Request headers는 선택 요청에만 적용한다. 두 헤더 행은 JSON 문자열 객체를 사용하며 동일 키의 반복도 파싱 오류로 거부한다. `업데이트` 또는 실행 버튼은 편집 중인 셀을 확정하고 전체 입력을 검증한 후 새 `ClientConfig`와 요청 목록을 메모리에 반영한다. 오류가 있으면 기존 설정을 그대로 유지하고 그리드 아래 입력 오류를 표시하며 실행하지 않는다. 업데이트한 경로는 검색과 목록에도 반영한다. 동일한 설정의 중복 케이스는 원본 인덱스로 구분하여 선택한 케이스만 변경한다. 업데이트 전 다른 요청을 선택하면 미적용 입력은 버린다.
 
 단건·선택·전체 실행은 업데이트된 설정의 snapshot을 사용한다. 단건 실행에서 경로 변경으로 현재 검색 결과에서 제외되더라도 편집했던 요청을 실행한다. 실행 중에는 그리드와 업데이트 버튼을 잠그고 완료 후 복원한다. 파일 저장·설정 변환 API를 호출하지 않으므로 YAML/Excel 설정파일은 변경하지 않는다. application을 다시 실행하면 설정파일의 원래 값을 읽는다.
 
@@ -156,6 +167,12 @@ java -jar target/curl-http-mock-client.jar --config samples/config.yml --loop 3 
 `BatchExecutor.run(config, progress, loops, skipResult)`가 반복 및 저장 정책을 적용한다. 기존 호출은 1회 실행과 저장을 유지한다. 저장 생략 시 `RunResult`의 workbook/artifactsDirectory와 `TransactionResult`의 파일 경로는 null이며 헤더 문자열은 비어 있다. `CurlRunner`는 결과 디렉토리 null을 저장 생략으로 처리하고, `RequestCompression`은 파일과 메모리 압축 경로를 공유한다.
 
 ## 구조 변경 내역
+
+- 2026-10-07: 공통·개별 헤더 기능의 커밋·푸시 전 기술문서를 갱신하고 Java 21 Maven verify를 다시 실행했다. 전체 234개 테스트의 실패·오류·생략 0건과 JAR 빌드 성공을 확인했다. 로그는 `verification/headers-push-verify.log`다.
+
+- 2026-10-07: `ClientConfig`와 `PayloadType`에 불변 헤더 맵을 추가하고 기존 생성자를 유지했다. `RequestHeaders`가 형식·중복·관리 헤더를 검증하며 대소문자 구분 없이 개별 값을 우선 병합한다. `CurlRunner`의 공통 명령 경로에 연결해 저장/저장 생략 실행 모두 적용한다.
+- 2026-10-07: YAML과 Excel Settings/선택적 PayloadTypes 열에 헤더를 추가하고 조합 확장·설정 복사·단건/선택실행에 보존했다. `RuntimeSummary`에 전체/선택 요청 헤더 편집 행을 추가하고 Excel·화면 JSON의 동일 키 중복도 거부한다. README·CHANGELOG와 `samples/config-headers.yml`에 사용법을 기록했다.
+- 2026-10-07: `HeadersTest` 20개를 포함한 전체 234개 테스트의 실패·오류·생략 0건과 Maven verify 성공을 확인했다. 실제 curl 전송, 개별 우선 적용·중복 제거·빈 값, 저장 생략, 화면 단건/선택/전체 실행 및 원본 보존을 검증했다. 최종 JAR의 헤더 예제 YAML→Excel→YAML 변환도 성공했다. 전체 검증 로그는 `verification/headers-verify.log`다.
 
 - 2026-10-07: README·기술문서·CHANGELOG·검증 문서에 반복/저장 생략 옵션, CLI 전용 범위와 종료 동작을 반영했다. target 산출물을 정리한 후 전체 Maven verify에서 214개 테스트의 실패·오류·생략 0건과 BUILD SUCCESS를 확인했다. 로그는 `verification/run-options-docs-push-20261007.log`다.
 

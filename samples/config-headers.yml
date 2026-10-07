@@ -1,0 +1,18 @@
+endpointUrl: "http://localhost:8080"
+method: "POST"
+connectTimeoutSeconds: 3
+requestTimeoutSeconds: 3
+outputDirectory: "results"
+headers:
+  Authorization: "Bearer common-token"
+  X-Client: "curl-http-mock-client"
+payloadTypes:
+  - contentType: "json,xml"
+    transferEncoding: "NA"
+    payloadSize: "SM"
+    headers:
+      authorization: "Bearer request-token"
+      X-Request: "individual"
+  - contentType: "form"
+    transferEncoding: "NA"
+    payloadSize: "SM"

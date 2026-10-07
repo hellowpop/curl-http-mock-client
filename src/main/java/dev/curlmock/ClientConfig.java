@@ -6,10 +6,19 @@ import java.net.URI;
 
 public record ClientConfig(String endpointUrl, String method, String curlExecutable,
                            Integer connectTimeoutSeconds, Integer requestTimeoutSeconds,
-                           String outputDirectory, List<PayloadType> payloadTypes, List<String> curlArguments) {
+                           String outputDirectory, List<PayloadType> payloadTypes, List<String> curlArguments,
+                           java.util.Map<String, String> headers) {
     public ClientConfig {
         if (curlArguments == null) throw new IllegalArgumentException("curlArguments must be an array");
         curlArguments = java.util.Collections.unmodifiableList(new ArrayList<>(curlArguments));
+        headers = RequestHeaders.copy(headers);
+    }
+
+    public ClientConfig(String endpointUrl, String method, String curlExecutable,
+                        Integer connectTimeoutSeconds, Integer requestTimeoutSeconds,
+                        String outputDirectory, List<PayloadType> payloadTypes, List<String> curlArguments) {
+        this(endpointUrl, method, curlExecutable, connectTimeoutSeconds, requestTimeoutSeconds,
+                outputDirectory, payloadTypes, curlArguments, java.util.Map.of());
     }
 
     public ClientConfig(String endpointUrl, String method, String curlExecutable,
@@ -28,6 +37,7 @@ public record ClientConfig(String endpointUrl, String method, String curlExecuta
     }
     public void validate() {
         CurlArguments.validate(curlArguments);
+        RequestHeaders.validate(headers);
         if (endpointUrl == null || endpointUrl.isBlank()) throw new IllegalArgumentException("endpointUrl is required");
         URI uri = URI.create(endpointUrl);
         if (!("http".equalsIgnoreCase(uri.getScheme()) || "https".equalsIgnoreCase(uri.getScheme()))
@@ -44,6 +54,7 @@ public record ClientConfig(String endpointUrl, String method, String curlExecuta
             var entry = payloadTypes.get(i);
             if (entry == null || entry.contentType() == null || entry.transferEncoding() == null || entry.payloadSize() == null)
                 throw new IllegalArgumentException("payloadTypes[" + i + "] requires contentType, transferEncoding and payloadSize");
+            RequestHeaders.validate(entry.headers());
             if ((entry.connectTimeoutSeconds() != null && entry.connectTimeoutSeconds() <= 0)
                     || (entry.requestTimeoutSeconds() != null && entry.requestTimeoutSeconds() <= 0))
                 throw new IllegalArgumentException("payloadTypes[" + i + "] timeouts must be positive integers");
@@ -51,13 +62,13 @@ public record ClientConfig(String endpointUrl, String method, String curlExecuta
     }
 
     public ClientConfig withOutputDirectory(String directory) {
-        return new ClientConfig(endpointUrl, method, curlExecutable, connectTimeoutSeconds, requestTimeoutSeconds, directory, payloadTypes, curlArguments);
+        return new ClientConfig(endpointUrl, method, curlExecutable, connectTimeoutSeconds, requestTimeoutSeconds, directory, payloadTypes, curlArguments, headers);
     }
 
     public ClientConfig withAdditionalCurlArguments(List<String> additional) {
         var combined = new ArrayList<>(curlArguments);
         combined.addAll(additional);
         return new ClientConfig(endpointUrl, method, curlExecutable, connectTimeoutSeconds, requestTimeoutSeconds,
-                outputDirectory, payloadTypes, combined);
+                outputDirectory, payloadTypes, combined, headers);
     }
 }

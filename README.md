@@ -164,6 +164,29 @@ YAML 값은 따옴표 없는 양의 정수로 입력합니다. `0`, 음수, 소�
 
 `outputDirectory`의 상대 경로는 **설정 파일 위치**를 기준으로 해석합니다. 따라서 제공 샘플의 기본 결과 위치는 `samples/results`입니다. 다른 디렉토리로 설정 파일을 변환할 때는 절대 경로를 기록하여 같은 결과 위치를 유지합니다. 알 수 없는 키, 중복 키, 잘못된 값, 빈 배열은 실행 전에 거부합니다. YAML timeout은 따옴표 없는 정수로, CT/TE/PS는 표에 나온 문자열로 입력합니다. 숫자 enum 인덱스나 boolean을 문자열로 자동 변환하지 않습니다.
 
+### 공통 헤더와 개별 요청 헤더
+
+최상위 `headers`에 모든 요청의 공통 헤더를 지정하고, 각 `payloadTypes` 항목의 `headers`에 개별 헤더를 지정합니다. 이름과 값은 문자열이며 생략하면 빈 객체를 사용합니다. 같은 이름은 대소문자 구분 없이 개별 헤더가 공통 헤더를 덮어쓰고 하나만 전송합니다.
+
+```yaml
+headers:
+  Authorization: "Bearer common-token"
+  X-Client: "mock-client"
+payloadTypes:
+  - contentType: json
+    transferEncoding: NA
+    payloadSize: SM
+    headers:
+      authorization: "Bearer request-token"
+      X-Request: "individual"
+```
+
+위 요청에는 `Authorization: Bearer request-token`, `X-Client: mock-client`, `X-Request: individual`이 적용됩니다. 같은 이름의 `curlArguments`/CLI `--curl-arg` 헤더보다 `headers` 설정이 우선합니다. 빈 문자열 값은 빈 헤더로 전송합니다. `Content-Type`, `Content-Length`, `Transfer-Encoding`, `Content-Encoding`, `Expect`는 본문 생성·전송 방식에 따라 프로그램이 관리하므로 지정할 수 없습니다. 줄바꿈·NUL, 잘못된 헤더 이름과 같은 범위 내 중복 이름은 거부합니다.
+
+Excel은 `Settings`의 `headers` 값과 `PayloadTypes`의 선택적 `headers` 열에 `{"Authorization":"Bearer token"}` 같은 JSON 문자열 객체를 입력합니다. 빈 셀·생략은 빈 객체입니다. 조합 확장 및 YAML↔Excel 변환에서 헤더를 보존합니다. application 실행 요약의 `Common headers`와 `Request headers`도 같은 JSON 형식으로 편집하며, 업데이트 또는 실행 시 적용됩니다.
+
+전체 예시는 [config-headers.yml](samples/config-headers.yml)입니다.
+
 ### curl 명령에 추가 파라미터 지정
 
 최상위 `curlArguments`에 curl 인수를 문자열 배열로 지정하면 모든 요청에 공통 적용합니다. 각 원소는 하나의 인수이며, 옵션과 값은 별도 원소로 입력합니다. 생략하면 빈 배열을 사용합니다.
@@ -189,7 +212,7 @@ java -jar target/curl-http-mock-client.jar --config samples/config.yml --curl-ar
 
 ## Excel 설정
 
-`Settings` 시트는 `key`, `value` 열로 endpoint와 실행 설정을 기록합니다. `PayloadTypes` 시트는 `contentType`, `transferEncoding`, `payloadSize`, `connectTimeoutSeconds`, `requestTimeoutSeconds` 열로 배열을 기록합니다. timeout 셀을 비우면 상위 설정값을 상속합니다. 기존 3열 파일과 선택적 timeout 열 하나만 있는 파일도 읽을 수 있습니다. 첫 행의 열 이름은 정확히 유지해야 합니다. timeout 값은 정수 숫자 셀 또는 정수 문자열 셀로 입력합니다. 수식 셀은 허용하지 않습니다. `.xlsx`만 지원합니다.
+`Settings` 시트는 `key`, `value` 열로 endpoint와 실행 설정을 기록합니다. `PayloadTypes` 시트는 `contentType`, `transferEncoding`, `payloadSize`, `connectTimeoutSeconds`, `requestTimeoutSeconds`, `headers` 열로 배열을 기록합니다. timeout 셀을 비우면 상위 설정값을 상속합니다. 기존 3열·5열 파일과 선택적 timeout/header 열 일부만 있는 파일도 읽을 수 있습니다. 첫 행의 열 이름은 정확히 유지해야 합니다. timeout 값은 정수 숫자 셀 또는 정수 문자열 셀로 입력합니다. 수식 셀은 허용하지 않습니다. `.xlsx`만 지원합니다.
 
 `PayloadTypes` 시트 입력 예시:
 
@@ -198,7 +221,7 @@ java -jar target/curl-http-mock-client.jar --config samples/config.yml --curl-ar
 | json, xml | GZ,CSB | CM,20K | 2 | 5 |
 | form | NA | SM | | |
 
-빈 timeout 셀은 값을 지정하지 않은 상태이며, `Settings`의 같은 키를 사용하거나 해당 키도 없으면 3초를 사용합니다. 샘플 생성은 5개 열을 작성하고 항목별 timeout 셀은 비워 둡니다. YAML에서 Excel로 변환하면 조합별로 확장된 행에 지정한 timeout을 복사합니다.
+빈 timeout 셀은 값을 지정하지 않은 상태이며, `Settings`의 같은 키를 사용하거나 해당 키도 없으면 3초를 사용합니다. 샘플 생성은 6개 열을 작성하고 항목별 timeout 셀은 비워 두며 headers는 `{}`를 기록합니다. YAML에서 Excel로 변환하면 조합별로 확장된 행에 지정한 timeout과 헤더를 복사합니다.
 
 ## Payload와 endpoint 경로
 

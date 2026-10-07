@@ -14,8 +14,9 @@ import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 final class ExcelConfigCodec {
-    private static final Set<String> KEYS = Set.of("endpointUrl", "method", "curlExecutable", "connectTimeoutSeconds", "requestTimeoutSeconds", "outputDirectory", "curlArguments");
+    private static final Set<String> KEYS = Set.of("endpointUrl", "method", "curlExecutable", "connectTimeoutSeconds", "requestTimeoutSeconds", "outputDirectory", "curlArguments", "headers");
     private static final com.fasterxml.jackson.databind.ObjectMapper JSON = new com.fasterxml.jackson.databind.ObjectMapper()
+            .enable(com.fasterxml.jackson.core.JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
             .enable(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
     private static final List<String> TYPE_COLUMNS = List.of("contentType", "transferEncoding", "payloadSize");
     private static final List<String> TIMEOUT_COLUMNS = List.of("connectTimeoutSeconds", "requestTimeoutSeconds");
@@ -34,7 +35,7 @@ final class ExcelConfigCodec {
             for (int i = 3; i < types.getRow(0).getLastCellNum(); i++) {
                 String column = text(types.getRow(0).getCell(i));
                 if (column.isEmpty() && i == types.getRow(0).getLastCellNum() - 1) break;
-                if (!TIMEOUT_COLUMNS.contains(column) || columns.contains(column))
+                if ((!TIMEOUT_COLUMNS.contains(column) && !column.equals("headers")) || columns.contains(column))
                     throw new IllegalArgumentException("Invalid or duplicate PayloadTypes column: " + column);
                 columns.add(column);
             }
@@ -47,7 +48,9 @@ final class ExcelConfigCodec {
                 if (!KEYS.contains(key)) throw new IllegalArgumentException("Unknown Excel setting at row " + (i + 1) + ": " + key);
                 if (!seen.add(key)) throw new IllegalArgumentException("Duplicate Excel setting: " + key);
                 String value = text(row.getCell(1));
-                if (key.equals("curlArguments")) {
+                if (key.equals("headers")) {
+                    root.set(key, value.isEmpty() ? JSON.createObjectNode() : JSON.readTree(value));
+                } else if (key.equals("curlArguments")) {
                     if (value.isEmpty()) root.putArray(key);
                     else root.set(key, JSON.readTree(value));
                 } else if (key.endsWith("TimeoutSeconds")) {
@@ -65,6 +68,10 @@ final class ExcelConfigCodec {
                 for (int column = 3; column < columns.size(); column++) {
                     String value = text(row.getCell(column));
                     if (!value.isEmpty()) {
+                        if (columns.get(column).equals("headers")) {
+                            entry.set("headers", JSON.readTree(value));
+                            continue;
+                        }
                         if (!value.matches("[0-9]+")) throw new IllegalArgumentException(columns.get(column) + " must be a positive integer");
                         entry.put(columns.get(column), Integer.parseInt(value));
                     }
@@ -83,7 +90,8 @@ final class ExcelConfigCodec {
                 {"endpointUrl", config.endpointUrl()}, {"method", config.method()}, {"curlExecutable", config.curlExecutable()},
                 {"connectTimeoutSeconds", config.connectTimeoutSeconds().toString()},
                 {"requestTimeoutSeconds", config.requestTimeoutSeconds().toString()}, {"outputDirectory", config.outputDirectory()},
-                {"curlArguments", JSON.writeValueAsString(config.curlArguments())}
+                {"curlArguments", JSON.writeValueAsString(config.curlArguments())},
+                {"headers", JSON.writeValueAsString(config.headers())}
             };
             for (int i = 0; i < rows.length; i++) {
                 Row row = settings.createRow(i + 1);
@@ -95,6 +103,7 @@ final class ExcelConfigCodec {
             Sheet types = book.createSheet("PayloadTypes");
             var columns = new java.util.ArrayList<>(TYPE_COLUMNS);
             columns.addAll(TIMEOUT_COLUMNS);
+            columns.add("headers");
             ExcelStyles.header(book, types, columns);
             int index = 1;
             for (var type : config.payloadTypes()) {
@@ -104,6 +113,7 @@ final class ExcelConfigCodec {
                 row.createCell(2).setCellValue(type.payloadSize().token());
                 if (type.connectTimeoutSeconds() != null) row.createCell(3).setCellValue(type.connectTimeoutSeconds());
                 if (type.requestTimeoutSeconds() != null) row.createCell(4).setCellValue(type.requestTimeoutSeconds());
+                row.createCell(5).setCellValue(JSON.writeValueAsString(type.headers()));
             }
             for (int i = 0; i < columns.size(); i++) types.setColumnWidth(i, 26 * 256);
             ExcelStyles.filter(settings);

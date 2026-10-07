@@ -65,6 +65,7 @@ public final class ConfigFiles {
     }
 
     private static void validateInputTypes(JsonNode input) {
+        RequestHeaders.validateInput(input);
         if (input.has("curlArguments")) {
             JsonNode arguments = input.get("curlArguments");
             if (!arguments.isArray()) throw new IllegalArgumentException("curlArguments must be an array of strings");
@@ -83,6 +84,7 @@ public final class ConfigFiles {
         if (entries == null || !entries.isArray()) throw new IllegalArgumentException("payloadTypes must be an array");
         for (JsonNode entry : entries) {
             if (!entry.isObject()) throw new IllegalArgumentException("Each payloadTypes entry must be an object");
+            RequestHeaders.validateInput(entry);
             for (String key : java.util.List.of("connectTimeoutSeconds", "requestTimeoutSeconds")) {
                 if (entry.has(key) && (!entry.get(key).isIntegralNumber() || !entry.get(key).canConvertToInt()))
                     throw new IllegalArgumentException("payloadTypes." + key + " must be an integer");
