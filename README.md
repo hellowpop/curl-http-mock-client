@@ -58,6 +58,22 @@ java -jar target/curl-http-mock-client.jar --yml-to-excel sample.yml --output co
 
 종료 코드: **0** 성공, **1** HTTP/curl 실행 또는 결과 저장 실패, **2** 옵션/설정 오류. 개별 요청 실패 후에도 다음 요청과 남은 반복을 실행하며 하나라도 실패하면 종료 코드 1을 반환합니다. 기본 저장 모드에서는 실패를 파일과 결과 행에 기록합니다. 리디렉션은 추가 인수에 `--location`을 지정하면 추적합니다. 200~399 응답은 성공으로 분류합니다.
 
+### Apache JMeter JMX 내보내기
+
+```powershell
+java -jar target/curl-http-mock-client.jar --config samples/config.yml --export-jmx requests.jmx
+java -jar target/curl-http-mock-client.jar --config samples/config.xlsx --export-jmx requests.jmx --overwrite
+jmeter -n -t requests.jmx -l results.jtl
+```
+
+`--export-jmx FILE`은 설정의 확장된 호출 목록을 순서대로 Apache JMeter 테스트 계획으로 생성합니다. HTTP 요청이나 curl 실행, 결과 디렉토리 생성 없이 종료하며, YAML·Excel 모두 지원합니다. 파일 확장자는 `.jmx`여야 하며 기존 파일은 `--overwrite`를 지정해야 교체됩니다. `--application`, `--loop`, `--skip-result`, `--output`과 함께 사용할 수 없습니다.
+
+JMX에는 요청마다 생성한 본문과 압축 데이터, URL·메서드·헤더·타임아웃 및 실행 스크립트가 포함됩니다. 본문은 내보내기 시점의 고정 데이터이므로 JMeter 반복 실행에서도 같은 본문을 재사용합니다. 기본 부하는 스레드 1개, 전체 목록 1회이며 JMeter의 Thread Group에서 변경할 수 있습니다. JSON/XML/form/multipart, NA/GZ/DEFLATE/COMPRESS/BR 및 세 chunk 크기를 지원합니다. 공통 헤더보다 개별 헤더가 우선하며 한글과 `${...}` 값도 문자 그대로 전달합니다.
+
+JMeter 기본 Groovy JSR223 Sampler와 포함된 Apache HttpClient를 사용하므로 별도 플러그인, 이 프로그램의 JAR 또는 본문 파일이 필요하지 않습니다. JMeter 5.5 / Java 17에서 실제 실행을 검증했습니다. 생성 프로그램은 Java 21을 사용하지만 JMeter는 설치 버전에 맞는 Java로 실행하세요. 본문이 크거나 요청이 많으면 JMX 크기도 증가합니다.
+
+JMX 변환에서 지원하는 추가 curl 인수는 `--header`/`-H`, `--user-agent`/`-A`, `--referer`/`-e`, `--user`/`-u`(문자 그대로의 `user:password`), `--basic`, `--oauth2-bearer`, `--cookie`/`-b`(문자 그대로의 쿠키), `--insecure`/`-k`, `--noproxy *`입니다. 설정과 반복 `--curl-arg`를 병합합니다. 프록시·리디렉션·파일 기반 인증·쿠키 등 다른 옵션, 중복 curl 헤더와 `Name:` 형태의 헤더 제거는 명시적으로 거부합니다. 빈 헤더는 `Name;`으로 표현합니다. JMX에 인증 정보도 포함되므로 파일 공유 시 해당 값을 확인하세요.
+
 ### Swing application mode
 
 전체 기본 조합 설정은 [YAML](samples/config-all-cases.yml) 또는 [Excel](samples/config-all-cases.xlsx)을 사용하세요. 4개 Content-Type × 8개 Transfer-Encoding × 3개 기본 크기(SM/CM/LG), 총 96건입니다. 기본 endpoint는 `http://localhost:8080`이며 실제 서버 주소로 변경한 뒤 실행합니다.

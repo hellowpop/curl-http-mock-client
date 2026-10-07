@@ -1,5 +1,24 @@
 # 검증 결과
 
+## Apache JMeter JMX 내보내기 (2026-10-08)
+
+푸시 전 Java 21에서 Maven clean verify를 다시 실행하여 253개 테스트의 실패·오류·생략 0건과 BUILD SUCCESS를 확인했다. 로그는 `verification/jmx-push-verify.log`다. README·project.md·CHANGELOG 및 본 검증 문서를 내보내기 구조와 지원 범위에 맞춰 업데이트했다.
+
+`JmxExportTest`에서 YAML/Excel 입력과 확장 순서, 본문·multipart boundary·gzip 압축, 헤더 우선순위·한글·literal 데이터·timeout, 원본 설정 보존과 HTTP/curl 및 결과 저장 미실행, 덮어쓰기 보호, 모드 충돌·확장자·누락 인수·지원하지 않는 curl 옵션을 검증한다. 구현 전 새 옵션이 없어 실패한 로그는 `verification/jmx-red.log`다. 리디렉션 및 헤더 제거의 잘못된 매핑을 재현한 테스트 로그는 `verification/jmx-review-red.log`다.
+
+실제 JMeter 5.5/Java 17로 4개 Content-Type × 8개 전송 방식의 32건을 실행했다. HTTP 서버에서 각 본문을 독립 decoder로 복원하여 2,048바이트와 multipart boundary·chunked 헤더를 검증했다. POST/PUT chunked 요청도 각각 실행하고, 한글 헤더 및 `${literal}` 문자열의 원문 전송, 하나의 HTTP 500 이후 나머지 요청 계속 실행, 느린 서버에 대한 전체 요청 deadline을 검증했다. 초기 JMeter 5.5/Java 21 실행은 포함된 Groovy 3.0.11이 class file version 65를 지원하지 않아 실패했으며, JMeter 실행 JVM을 Java 17로 변경하여 통과했다. 생성 프로그램은 Java 21이다. 다른 JMeter 버전 및 HTTPS 실제 전송은 검증하지 않았다.
+
+아래 도구는 JMeter 설치 위치와 JMeter용 Java 실행 경로를 인수로 받아 실행하며, 출력 디렉토리에 JMX/JTL/로그를 생성한다. 프로그램 프로젝트와 다른 작업 디렉토리에서 JMeter를 실행해 별도 본문 파일이 필요하지 않은 것도 확인한다.
+
+```powershell
+java -cp 'target/test-classes;target/curl-http-mock-client.jar' dev.curlmock.JmxJmeterSmoke `
+  'D:/01.app/apache/apache-jmeter-5.5' `
+  'D:/01.app/java/jdk-17.0.10/bin/java.exe' `
+  'verification/jmx-smoke'
+```
+
+최종 Maven clean verify에서 **253개 테스트 / 실패 0 / 오류 0 / 생략 0**, **BUILD SUCCESS**를 확인했다(`verification/jmx-final-verify.log`). 실제 JMeter 실행 로그는 `verification/jmx-final-smoke.log`에 기록한다. JMeter는 일부 샘플이 실패해도 프로세스 종료 코드가 0이므로 검증 도구에서 서버 수신 건수·JTL 실패 행·TIMEOUT 결과를 별도로 확인한다.
+
 ## 반복 실행·저장 생략 및 문서 정리 (2026-10-07)
 
 RunOptionsTest 13개에서 실제 로컬 HTTP 서버와 curl로 8개 전송 방식의 저장 생략 실행을 확인했다. gzip·deflate·compress·Brotli 본문을 독립 decoder로 복원하여 정확한 크기와 JSON 구조를 확인하고, 큰 응답 본문을 받아도 결과 디렉토리를 만들지 않는 것을 검증했다. 전체 목록 3회 반복의 순서, 6건 중 첫 실패를 포함한 집계와 종료 코드, 하나의 Excel에 누적된 결과 행, 저장 생략과 반복의 조합을 검증했다. 잘못된 반복 횟수·누락값·모드 조합, 실행 전 중단 시 남은 반복 취소와 interrupt 상태 보존, curl 실행 파일 누락 처리도 확인했다.

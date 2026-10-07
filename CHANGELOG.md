@@ -1,5 +1,11 @@
 # 변경 이력
 
+## 2026-10-08 — Apache JMeter JMX 내보내기
+
+- `--config INPUT --export-jmx FILE`로 YAML/Excel의 확장된 호출을 단일 JMeter JMX로 생성합니다. 실제 HTTP/curl 실행 없이 URL·메서드·헤더·본문·압축·chunk 크기·타임아웃을 보존합니다.
+- JMX에 고정 본문과 기본 Groovy JSR223 스크립트를 포함하며 스레드 1개·1회 순차 실행으로 생성합니다. 기본 덮어쓰기 금지, `--overwrite`, 옵션 충돌과 지원하지 않는 curl 인수 오류를 처리합니다.
+- `JmxExportTest`와 실제 JMeter 실행 도구 `JmxJmeterSmoke`를 추가했습니다. JMeter 5.5/Java 17에서 실제 HTTP 전송과 압축 복원·한글 헤더·실패 후 계속 실행·전체 타임아웃을 검증합니다.
+
 ## 2026-10-07 — SM/CM/LG 크기 설정
 
 - `payloadSizes`에서 SM/CM/LG별 크기를 지정하고 생략한 항목은 기존 2K/16K/64K 기본값을 사용합니다. 요청 경로의 preset 이름과 직접 크기 설정은 유지합니다.

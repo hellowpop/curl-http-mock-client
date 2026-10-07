@@ -7,6 +7,7 @@ Java 21 CLI 또는 `--application` Swing 화면에서 외부 curl 프로세스�
 | 구성 요소 | 역할 |
 |---|---|
 | `Main` | picocli 옵션, 실행/샘플/변환 모드, CLI 반복·저장 생략 옵션 검증, 종료 코드 |
+| `JmxExporter`, `jmx-sampler.groovy` | 설정 호출을 본문·Groovy 스크립트가 포함된 단일 JMeter JMX로 내보내기 |
 | `ApplicationPanel` | Swing 요청 검색·선택 요약, 비동기 단건 실행, 전체/검색 결과 실행 모달 연결 및 결과 표시 |
 | `RuntimeSummary` | 실행값 편집 그리드, 검증된 메모리 설정 snapshot 생성 |
 | `BatchProgressPanel` | 모달 전체/선택실행 팝업의 실시간 실행 로그, 완료 요약, 결과 Excel 보기 |
@@ -25,6 +26,18 @@ Java 21 CLI 또는 `--application` Swing 화면에서 외부 curl 프로세스�
 | `JsonResponse` | 유효한 JSON 응답의 스트리밍 pretty 저장, 숫자/중복 필드 보존 |
 | `BatchExecutor`, `RunControl` | 전체 목록 반복·순차 실행, 저장 정책, Ctrl-C 취소와 부분 결과 저장 |
 | `ResultWorkbook`, `ExcelStyles` | 결과 Excel과 파일 링크, 서식 |
+
+## Apache JMeter JMX 내보내기
+
+`Main --config INPUT --export-jmx FILE`은 기존 설정 읽기·조합 확장·추가 curl 인수 병합·검증 후 `JmxExporter.write`로 분기하여 HTTP 호출 없이 종료한다. YAML/Excel 입력, `.jmx` 확장자와 부모 디렉토리 생성, 기본 덮어쓰기 금지 및 `--overwrite`를 지원한다. 실행 전용 옵션(application/loop/skip-result) 및 변환 output 옵션과는 함께 사용하지 못한다. 생성 성공은 종료 코드 0, 잘못된 옵션·설정·지원하지 않는 curl 옵션·내보내기 I/O 오류는 2다.
+
+StAX로 JMeter 1.2/5.0 XML과 TestPlan → ThreadGroup → JSR223Sampler/hashTree 쌍을 기록한다. 기본 ThreadGroup은 스레드 1개·순차 1회·실패 후 계속 실행한다. 설정 목록 순서와 중복 항목을 보존하고, 각 샘플에는 URL·메서드·실효 timeout(ms)·chunk 크기·대소문자 무시 병합 헤더·전송 본문을 Base64 JSON 파라미터로 넣는다. 본문 생성과 네 종류의 압축은 기존 `PayloadGenerator`·`RequestCompression`을 재사용하며 multipart boundary를 헤더와 함께 보존한다. 데이터는 내보내기 시 생성한 고정 snapshot으로 반복마다 재생성하지 않는다. 타임아웃의 밀리초 값은 HttpClient int 범위 내로 제한한다.
+
+`jmx-sampler.groovy`는 JMeter 기본 Groovy/Apache HttpClient를 사용한다. 연결 timeout과 전체 요청 deadline을 별도로 적용하며 완료·예외 시 response/client/timer를 정리한다. `ByteArrayEntity.writeTo`는 chunked일 때 지정 크기마다 flush한다. 압축 본문은 생성된 바이트를 그대로 전송한다. 자동 retry·응답 압축 해제·리디렉션을 비활성화하며 HTTP 200~399를 성공으로 기록한다. 헤더 송신 인코딩은 UTF-8이다. Base64 파라미터를 스크립트 실행 시 해석하므로 헤더의 `${...}` 또는 Groovy 구문을 평가하지 않는다. 스크립트와 본문이 JMX에 포함되어 별도 JAR·플러그인·본문 파일이 필요하지 않다. 요청 본문 크기를 sentBytes에 기록하지만 HttpClient 내부 연결/latency 상세 측정치는 제공하지 않는다.
+
+curl 옵션 변환은 literal header/user-agent/referer/basic 또는 bearer 인증/literal cookie/insecure/noproxy `*`로 한정한다. 지원 목록은 [README](README.md)의 JMX 설명을 참고한다. 프록시·리디렉션·중복 curl 헤더·헤더 제거·파일 기반 쿠키 등은 정확한 전송 의미를 보장할 수 없어 거부한다. 지원하지 않는 옵션은 파일 생성 전에 검증한다. 임시 파일에 기록을 완료한 후 목적지로 이동하여 기존 파일을 부분 결과로 덮어쓰지 않는다.
+
+`JmxExportTest`는 CLI 및 YAML/Excel·조합 확장, HTTP/curl 미실행, XML 파라미터·본문·헤더·타임아웃과 덮어쓰기 보호 및 옵션 오류를 검증한다. `JmxJmeterSmoke`는 외부 JMeter 설치 경로와 실행 Java 경로를 받아 로컬 서버로 32개 CT/TE 조합, POST/PUT, 한글 헤더·literal 값, 실패 후 계속 실행·전체 deadline을 검증하는 수동 실행 도구다. [검증 문서](docs/verification.md)에 실행 명령을 기록한다.
 
 ## 공통·개별 요청 헤더
 
@@ -175,6 +188,8 @@ java -jar target/curl-http-mock-client.jar --config samples/config.yml --loop 3 
 `RuntimeSummary`의 `Payload sizes`는 전체 요청에 적용되는 편집 행이다. JSON 객체로 입력하고 항목 삭제 시 기본값으로 복원한다. 자동 계산 `Payload bytes`는 해석된 크기를 표시한다. YAML↔Excel 변환과 원본 파일을 바꾸지 않는 화면 편집도 지원한다. `PayloadSizesConfigTest`는 각 본문 형식의 정확한 크기, 기본값과 직접 크기 유지, 설정 간 격리, 변환·복사·화면 편집, 잘못된 입력, 실제 curl 단건/선택/전체/저장 생략 전송을 검증한다.
 
 ## 구조 변경 내역
+
+- 2026-10-08: `Main`의 `--config` 경로에 `--export-jmx FILE` 분기를 추가하고 `JmxExporter` 및 `jmx-sampler.groovy`로 단일 JMeter 계획 생성을 분리했다. 기존 설정 로더·본문 생성·압축을 재사용하며 결과 저장 실행을 우회한다. 기본 부하와 고정 본문 snapshot, literal 데이터 인코딩, 헤더·timeout·chunk 전송, 옵션 변환 제한과 덮어쓰기 보호를 기록했다. `JmxExportTest` 및 외부 JMeter 실행 도구 `JmxJmeterSmoke`를 추가했다.
 
 - 2026-10-07: SM/CM/LG 크기 설정 변경의 커밋·푸시 전 기술문서를 갱신하고 Java 21 Maven verify를 다시 실행했다. 전체 248개 테스트의 실패·오류·생략 0건과 JAR 빌드 성공을 확인했다. 최종 검증 로그는 `verification/payload-sizes-push-verify.log`다.
 

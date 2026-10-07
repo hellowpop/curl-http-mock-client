@@ -11,15 +11,17 @@ import picocli.CommandLine.*;
 public final class Main implements Callable<Integer> {
     @ArgGroup(exclusive = true, multiplicity = "1") private Mode mode;
     @Option(names = "--output", description = "Conversion destination (.yml/.yaml/.xlsx).") private Path output;
-    @Option(names = "--overwrite", description = "Replace an existing sample or converted configuration.") private boolean overwrite;
+    @Option(names = "--overwrite", description = "Replace an existing sample, converted configuration or JMX export.") private boolean overwrite;
     @Option(names = "--application", description = "Open the Swing application; requires --config.") private boolean application;
-    @Option(names = "--curl-arg", paramLabel = "ARG", description = "Append one curl argument (repeatable, run mode only; use --curl-arg=ARG).")
+    @Option(names = "--curl-arg", paramLabel = "ARG", description = "Append one curl argument (repeatable, requires --config; JMX export supports a subset; use --curl-arg=ARG).")
     private java.util.List<String> curlArguments = new java.util.ArrayList<>();
     @Spec private Model.CommandSpec spec;
     @Option(names = "--skip-result", description = "Skip result workbook and all request/response artifacts (CLI run only).")
     private boolean skipResult;
     @Option(names = "--loop", paramLabel = "N", description = "Repeat the complete request sequence N times (positive integer; default: 1, CLI run only).")
     private Integer loop;
+    @Option(names = "--export-jmx", paramLabel = "FILE", description = "Export configured requests to a self-contained Apache JMeter .jmx file; requires --config.")
+    private Path exportJmx;
 
     static final class Mode {
         @Option(names = "--config", description = "Execute payloadTypes from a YAML or Excel configuration.") Path config;
@@ -40,6 +42,8 @@ public final class Main implements Callable<Integer> {
         ClientConfig config;
         try {
             boolean conversion = mode.excelToYml != null || mode.ymlToExcel != null;
+            if (exportJmx != null && (mode.config == null || application || skipResult || loop != null))
+                throw new IllegalArgumentException("--export-jmx requires --config without --application, --skip-result or --loop");
             if ((skipResult || loop != null) && (mode.config == null || application))
                 throw new IllegalArgumentException("--skip-result and --loop require --config without --application");
             if (loop != null && loop < 1) throw new IllegalArgumentException("--loop must be a positive integer");
@@ -47,7 +51,7 @@ public final class Main implements Callable<Integer> {
             if (mode.config == null && !curlArguments.isEmpty()) throw new IllegalArgumentException("--curl-arg is only valid with --config");
             if (conversion && output == null) throw new IllegalArgumentException("Conversion requires --output");
             if (!conversion && output != null) throw new IllegalArgumentException("--output is only valid for conversion");
-            if (mode.config != null && overwrite) throw new IllegalArgumentException("--overwrite is only valid for samples or conversion");
+            if (mode.config != null && overwrite && exportJmx == null) throw new IllegalArgumentException("--overwrite is only valid for samples, conversion or JMX export");
             if (mode.sampleExcel != null) {
                 requireFormat(mode.sampleExcel, true);
                 ConfigFiles.write(mode.sampleExcel, ClientConfig.sample(), overwrite);
@@ -68,6 +72,10 @@ public final class Main implements Callable<Integer> {
             config = ConfigFiles.read(mode.config);
             config = config.withAdditionalCurlArguments(curlArguments);
             config.validate();
+            if (exportJmx != null) {
+                JmxExporter.write(exportJmx, config, overwrite);
+                return created(exportJmx);
+            }
         } catch (IOException | RuntimeException e) {
             spec.commandLine().getErr().println("Configuration error: " + e.getMessage());
             return 2;
