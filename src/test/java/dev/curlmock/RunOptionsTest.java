@@ -137,6 +137,114 @@ class RunOptionsTest {
         assertFalse(Files.exists(temp.resolve("results")));
     }
 
+    @Test void delaySeparatesUnitsIncludingLoopBoundaries() throws Exception {
+        var arrivals = new CopyOnWriteArrayList<Long>();
+        var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/", ex -> {
+            ex.getRequestBody().readAllBytes();
+            arrivals.add(System.nanoTime());
+            ex.sendResponseHeaders(arrivals.size() == 1 ? 500 : 200, -1);
+            ex.close();
+        });
+        server.start();
+        try {
+            Path config = writeConfig(server, List.of(
+                    new PayloadType(ContentType.JSON, TransferEncoding.NA, PayloadSize.SM),
+                    new PayloadType(ContentType.JSON, TransferEncoding.CCB, PayloadSize.SM)));
+            assertEquals(1, execute("--config", config.toString(), "--loop", "2", "--skip-result", "--delay", "200"), err.toString());
+            assertEquals(4, arrivals.size());
+            for (int i = 1; i < arrivals.size(); i++)
+                assertTrue(arrivals.get(i) - arrivals.get(i - 1) >= 200_000_000L, "Missing inter-unit delay at " + i);
+            assertFalse(Files.exists(temp.resolve("results")));
+        } finally { server.stop(0); }
+    }
+
+    @ParameterizedTest @org.junit.jupiter.params.provider.ValueSource(longs = {0, 60000})
+    void delayDoesNotWaitBeforeOrAfterSingleUnit(long delay) throws Exception {
+        var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/", ex -> {
+            ex.getRequestBody().readAllBytes();
+            ex.sendResponseHeaders(200, -1);
+            ex.close();
+        });
+        server.start();
+        try {
+            Path config = writeConfig(server, List.of(new PayloadType(ContentType.JSON, TransferEncoding.NA, PayloadSize.SM)));
+            assertTimeoutPreemptively(java.time.Duration.ofSeconds(5), () ->
+                    assertEquals(0, execute("--config", config.toString(), "--delay", Long.toString(delay)), err.toString()));
+            try (var files = Files.list(temp.resolve("results"))) {
+                assertEquals(1, files.filter(p -> p.toString().endsWith(".xlsx")).count());
+            }
+        } finally { server.stop(0); }
+    }
+
+    @Test void interruptionDuringDelaySavesOnlyCompletedUnit() throws Exception {
+        var received = new java.util.concurrent.CountDownLatch(1);
+        var count = new java.util.concurrent.atomic.AtomicInteger();
+        var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/", ex -> {
+            ex.getRequestBody().readAllBytes();
+            count.incrementAndGet();
+            ex.sendResponseHeaders(200, -1);
+            ex.close();
+            received.countDown();
+        });
+        server.start();
+        Thread worker = null;
+        try {
+            Path config = writeConfig(server, List.of(new PayloadType(ContentType.JSON, TransferEncoding.NA, PayloadSize.SM)));
+            var exit = new java.util.concurrent.atomic.AtomicInteger(-1);
+            var interrupted = new java.util.concurrent.atomic.AtomicBoolean();
+            worker = new Thread(() -> {
+                exit.set(execute("--config", config.toString(), "--loop", "2", "--delay", "60000"));
+                interrupted.set(Thread.currentThread().isInterrupted());
+            });
+            worker.start();
+            assertTrue(received.await(5, java.util.concurrent.TimeUnit.SECONDS), err.toString());
+            long deadline = System.nanoTime() + 5_000_000_000L;
+            while (worker.getState() != Thread.State.TIMED_WAITING && worker.isAlive() && System.nanoTime() < deadline)
+                Thread.sleep(10);
+            assertEquals(Thread.State.TIMED_WAITING, worker.getState());
+            worker.interrupt();
+            worker.join(5000);
+            assertFalse(worker.isAlive());
+            assertEquals(1, exit.get());
+            assertTrue(interrupted.get());
+            assertEquals(1, count.get());
+            try (var files = Files.list(temp.resolve("results"))) {
+                var workbook = files.filter(p -> p.toString().endsWith(".xlsx")).findFirst().orElseThrow();
+                try (var book = new XSSFWorkbook(workbook.toFile())) {
+                    assertEquals(1, book.getSheetAt(0).getLastRowNum());
+                }
+            }
+        } finally {
+            if (worker != null) { worker.interrupt(); worker.join(5000); }
+            server.stop(0);
+        }
+    }
+
+    @Test void rejectsInvalidDelayAndNonRunModesBeforeWritingFiles() throws Exception {
+        Path validConfig = temp.resolve("valid.yml");
+        ConfigFiles.write(validConfig, new ClientConfig("http://127.0.0.1:1", "POST", "curl", 1, 1,
+                temp.resolve("results").toString(),
+                List.of(new PayloadType(ContentType.JSON, TransferEncoding.NA, PayloadSize.SM))), false);
+        for (String n : List.of("-1", "abc", "1.5", "9223372036854775808"))
+            assertEquals(2, execute("--config", validConfig.toString(), "--delay", n));
+        assertEquals(2, execute("--config", validConfig.toString(), "--delay"));
+        for (String[] modeArgs : List.of(
+                new String[]{"--sample-yml", temp.resolve("sample.yml").toString()},
+                new String[]{"--sample-excel", temp.resolve("sample.xlsx").toString()},
+                new String[]{"--yml-to-excel", validConfig.toString(), "--output", temp.resolve("converted.xlsx").toString()},
+                new String[]{"--excel-to-yml", "missing.xlsx", "--output", temp.resolve("converted.yml").toString()},
+                new String[]{"--application", "--config", validConfig.toString()},
+                new String[]{"--config", validConfig.toString(), "--export-jmx", temp.resolve("export.jmx").toString()})) {
+            var args = new ArrayList<>(List.of(modeArgs));
+            args.addAll(List.of("--delay", "0"));
+            assertEquals(2, execute(args.toArray(String[]::new)));
+        }
+        try (var files = Files.list(temp)) { assertEquals(List.of(validConfig), files.toList()); }
+    }
+
     Path writeConfig(HttpServer server, List<PayloadType> types) throws Exception {
         Path path = temp.resolve("config.yml");
         ConfigFiles.write(path, new ClientConfig("http://127.0.0.1:" + server.getAddress().getPort(),

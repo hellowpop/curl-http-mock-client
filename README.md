@@ -42,6 +42,7 @@ java -jar target/curl-http-mock-client.jar --config samples/config.yml
 java -jar target/curl-http-mock-client.jar --config samples/config.xlsx
 java -jar target/curl-http-mock-client.jar --config samples/config.yml --loop 3
 java -jar target/curl-http-mock-client.jar --config samples/config.yml --loop 10 --skip-result
+java -jar target/curl-http-mock-client.jar --config samples/config.yml --delay 10
 
 java -jar target/curl-http-mock-client.jar --sample-yml sample.yml
 java -jar target/curl-http-mock-client.jar --sample-excel sample.xlsx
@@ -53,6 +54,8 @@ java -jar target/curl-http-mock-client.jar --yml-to-excel sample.yml --output co
 모드는 한 번에 하나만 지정합니다. 기존 샘플/변환 파일을 덮어쓰려면 `--overwrite`를 명시합니다. 실제 endpoint에 맞게 `endpointUrl`을 수정한 뒤 실행하세요. 새로 생성하는 샘플은 localhost:8080의 전체 96개 조합입니다. 기존 설정파일은 파일에 적힌 요청 목록을 사용합니다. 이 프로그램은 서버를 시작하지 않습니다.
 
 `--loop N`은 설정의 전체 요청 목록을 순서대로 N회 반복합니다. 기본값은 1회이며 N은 1 이상의 정수입니다. 요청이 96건이고 `--loop 3`이면 총 288건을 실행합니다. 각 요청마다 새 UUID와 payload를 생성하며 모든 반복 결과를 하나의 Excel 파일과 결과 디렉토리에 저장합니다.
+
+`--delay MS`는 각 유닛(확장된 요청 한 건)의 완료 후 다음 유닛 실행 전 대기 시간을 밀리초 단위로 지정합니다. 예: `--delay 10`은 유닛 사이에 10ms 대기합니다. 기본값은 0이며 0 이상의 정수를 받습니다. 첫 유닛 전과 마지막 유닛 후에는 대기하지 않으며, `--loop`의 반복 경계에도 적용합니다. `--skip-result`와 함께 사용할 수 있습니다. CLI `--config` 실행 전용이며 `--application`, 샘플 생성, 변환, JMX 내보내기와 함께 사용할 수 없습니다. 대기 중 중단하면 남은 실행을 취소하고 기본 저장 모드에서 완료된 결과를 저장합니다.
 
 `--skip-result`를 지정하면 Excel 결과와 요청/응답 payload, 압축 본문, 헤더, curl 로그 파일 및 결과 디렉토리를 생성하지 않습니다. 요청 본문은 메모리에서 전송하고 응답 본문은 버립니다. 콘솔 진행 로그와 성공/실패 집계는 유지합니다. `--loop`와 함께 사용할 수 있으며 두 옵션은 `--application`, 샘플 생성, 형식 변환과 함께 사용할 수 없습니다. YAML/Excel 설정의 키가 아닌 CLI 옵션입니다.
 
@@ -66,7 +69,7 @@ java -jar target/curl-http-mock-client.jar --config samples/config.xlsx --export
 jmeter -n -t requests.jmx -l results.jtl
 ```
 
-`--export-jmx FILE`은 설정의 확장된 호출 목록을 순서대로 Apache JMeter 테스트 계획으로 생성합니다. HTTP 요청이나 curl 실행, 결과 디렉토리 생성 없이 종료하며, YAML·Excel 모두 지원합니다. 파일 확장자는 `.jmx`여야 하며 기존 파일은 `--overwrite`를 지정해야 교체됩니다. `--application`, `--loop`, `--skip-result`, `--output`과 함께 사용할 수 없습니다.
+`--export-jmx FILE`은 설정의 확장된 호출 목록을 순서대로 Apache JMeter 테스트 계획으로 생성합니다. HTTP 요청이나 curl 실행, 결과 디렉토리 생성 없이 종료하며, YAML·Excel 모두 지원합니다. 파일 확장자는 `.jmx`여야 하며 기존 파일은 `--overwrite`를 지정해야 교체됩니다. `--application`, `--loop`, `--delay`, `--skip-result`, `--output`과 함께 사용할 수 없습니다.
 
 JMX에는 요청마다 생성한 본문과 압축 데이터, URL·메서드·헤더·타임아웃 및 실행 스크립트가 포함됩니다. 본문은 내보내기 시점의 고정 데이터이므로 JMeter 반복 실행에서도 같은 본문을 재사용합니다. 기본 부하는 스레드 1개, 전체 목록 1회이며 JMeter의 Thread Group에서 변경할 수 있습니다. JSON/XML/form/multipart, NA/GZ/DEFLATE/COMPRESS/BR 및 세 chunk 크기를 지원합니다. 공통 헤더보다 개별 헤더가 우선하며 한글과 `${...}` 값도 문자 그대로 전달합니다.
 

@@ -24,12 +24,12 @@ Java 21 CLI 또는 `--application` Swing 화면에서 외부 curl 프로세스�
 | `RequestCompression` | gzip·zlib deflate·Unix LZW compress·Brotli 전송 본문 생성 |
 | `LzwInputStream`, `LzwOutputStream` | 재사용 가능한 Unix `.Z` LZW 순차 복원·압축 스트림 |
 | `JsonResponse` | 유효한 JSON 응답의 스트리밍 pretty 저장, 숫자/중복 필드 보존 |
-| `BatchExecutor`, `RunControl` | 전체 목록 반복·순차 실행, 저장 정책, Ctrl-C 취소와 부분 결과 저장 |
+| `BatchExecutor`, `RunControl` | 전체 목록 반복·순차 실행, 유닛 간 대기, 저장 정책, Ctrl-C 취소와 부분 결과 저장 |
 | `ResultWorkbook`, `ExcelStyles` | 결과 Excel과 파일 링크, 서식 |
 
 ## Apache JMeter JMX 내보내기
 
-`Main --config INPUT --export-jmx FILE`은 기존 설정 읽기·조합 확장·추가 curl 인수 병합·검증 후 `JmxExporter.write`로 분기하여 HTTP 호출 없이 종료한다. YAML/Excel 입력, `.jmx` 확장자와 부모 디렉토리 생성, 기본 덮어쓰기 금지 및 `--overwrite`를 지원한다. 실행 전용 옵션(application/loop/skip-result) 및 변환 output 옵션과는 함께 사용하지 못한다. 생성 성공은 종료 코드 0, 잘못된 옵션·설정·지원하지 않는 curl 옵션·내보내기 I/O 오류는 2다.
+`Main --config INPUT --export-jmx FILE`은 기존 설정 읽기·조합 확장·추가 curl 인수 병합·검증 후 `JmxExporter.write`로 분기하여 HTTP 호출 없이 종료한다. YAML/Excel 입력, `.jmx` 확장자와 부모 디렉토리 생성, 기본 덮어쓰기 금지 및 `--overwrite`를 지원한다. 실행 전용 옵션(application/loop/delay/skip-result) 및 변환 output 옵션과는 함께 사용하지 못한다. 생성 성공은 종료 코드 0, 잘못된 옵션·설정·지원하지 않는 curl 옵션·내보내기 I/O 오류는 2다.
 
 StAX로 JMeter 1.2/5.0 XML과 TestPlan → ThreadGroup → JSR223Sampler/hashTree 쌍을 기록한다. 기본 ThreadGroup은 스레드 1개·순차 1회·실패 후 계속 실행한다. 설정 목록 순서와 중복 항목을 보존하고, 각 샘플에는 URL·메서드·실효 timeout(ms)·chunk 크기·대소문자 무시 병합 헤더·전송 본문을 Base64 JSON 파라미터로 넣는다. 본문 생성과 네 종류의 압축은 기존 `PayloadGenerator`·`RequestCompression`을 재사용하며 multipart boundary를 헤더와 함께 보존한다. 데이터는 내보내기 시 생성한 고정 snapshot으로 반복마다 재생성하지 않는다. 타임아웃의 밀리초 값은 HttpClient int 범위 내로 제한한다.
 
@@ -165,7 +165,7 @@ java -jar target/curl-http-mock-client.jar --config samples/config.yml --curl-ar
 
 `--location`을 지정하면 리디렉션을 추적하고 `--compressed`를 지정하면 응답 압축을 해제한다. 기본 동작에는 두 옵션을 적용하지 않는다. curl 옵션 의미는 [공식 man page](https://curl.se/docs/manpage.html)를 따른다.
 
-## 반복 실행과 결과 저장 생략
+## 반복 실행과 결과 저장 생략 및 유닛 간 대기
 
 CLI의 `--config` 실행에 다음 옵션을 적용할 수 있다. `--application`, 샘플 생성, 형식 변환과 함께 사용하면 설정 오류(종료 코드 2)를 반환한다.
 
@@ -174,10 +174,13 @@ java -jar target/curl-http-mock-client.jar --config samples/config.yml --loop 3 
 ```
 
 - `--loop N`: 전체 `payloadTypes` 목록을 설정 순서대로 N회 실행한다. 생략하면 1회이며 N은 1 이상의 정수여야 한다. 매 요청마다 새 UUID와 payload를 생성한다.
+- `--delay MS`: 확장된 요청 한 건을 유닛으로 보고 완료 후 다음 유닛 실행 전 MS 밀리초 대기한다. 기본값 0, 0 이상의 long 정수이며 반복 경계에도 적용한다. 첫 유닛 전·마지막 유닛 후에는 대기하지 않는다. CLI 실행 전용이며 JMX 내보내기와 함께 사용하면 종료 코드 2를 반환한다. 저장 생략과 함께 사용할 수 있다.
 - `--skip-result`: Excel 결과 및 UUID별 요청/응답 payload, 압축 본문, 헤더, curl 로그 파일을 생성하지 않는다. 결과 디렉토리도 생성하지 않는다. 요청은 메모리에서 curl 표준 입력으로 전송하고 응답 본문은 OS null 장치로 버린다. 콘솔 진행 로그와 성공/실패 집계는 유지한다.
 - 저장하는 경우 모든 반복 결과를 하나의 Excel 파일과 실행별 결과 디렉토리에 누적한다. HTTP/curl 실패가 있어도 남은 요청을 계속 실행하며 하나라도 실패하면 종료 코드 1을 반환한다. 중단 시 남은 반복을 실행하지 않으며, 저장 모드에서는 완료된 요청과 중단된 요청 결과를 기록한다.
 
 `BatchExecutor.run(config, progress, loops, skipResult)`가 반복 및 저장 정책을 적용한다. 기존 호출은 1회 실행과 저장을 유지한다. 저장 생략 시 `RunResult`의 workbook/artifactsDirectory와 `TransactionResult`의 파일 경로는 null이며 헤더 문자열은 비어 있다. `CurlRunner`는 결과 디렉토리 null을 저장 생략으로 처리하고, `RequestCompression`은 파일과 메모리 압축 경로를 공유한다.
+
+`BatchExecutor.run(config, progress, loops, skipResult, delayMs)`가 실행 간격을 추가로 받으며 기존 오버로드는 0ms를 전달한다. `RunControl.awaitDelay`는 취소 latch로 대기하여 JVM 종료 훅의 cancel 호출 즉시 깨어난다. 스레드 interrupt도 취소로 처리하고 interrupt 상태를 복원한다. 대기 중 중단된 경우 실행하지 않은 유닛의 결과 행을 만들지 않고 완료된 결과를 기존 finally 경로에서 저장한다. YAML/Excel 모델과 Swing 실행 경로의 기본값은 유지한다.
 
 ## SM/CM/LG 크기 설정
 
@@ -188,6 +191,12 @@ java -jar target/curl-http-mock-client.jar --config samples/config.yml --loop 3 
 `RuntimeSummary`의 `Payload sizes`는 전체 요청에 적용되는 편집 행이다. JSON 객체로 입력하고 항목 삭제 시 기본값으로 복원한다. 자동 계산 `Payload bytes`는 해석된 크기를 표시한다. YAML↔Excel 변환과 원본 파일을 바꾸지 않는 화면 편집도 지원한다. `PayloadSizesConfigTest`는 각 본문 형식의 정확한 크기, 기본값과 직접 크기 유지, 설정 간 격리, 변환·복사·화면 편집, 잘못된 입력, 실제 curl 단건/선택/전체/저장 생략 전송을 검증한다.
 
 ## 구조 변경 내역
+
+- 2026-10-09: delay 옵션 푸시 전 기술문서를 갱신하고 Java 21 Maven verify를 재실행하여 전체 258개 테스트의 실패·오류·생략 0건과 JAR 빌드 성공을 확인했다. 로그는 `verification/delay-push-verify.log`다.
+
+- 2026-10-09: Java 21 Maven verify에서 전체 258개 테스트의 실패·오류·생략 0건과 JAR 빌드 성공을 확인했다. 빌드된 JAR의 `--delay` 도움말을 확인했으며 검증 로그는 `verification/delay-verify.log`다.
+
+- 2026-10-09: `Main`에 CLI 전용 `--delay MS` 파싱·음수/모드 검증을 추가했다. `BatchExecutor`에 밀리초 간격 오버로드와 유닛 사이·반복 경계 대기를 추가하고 기존 호출은 0ms를 유지한다. `RunControl`의 취소 latch로 대기 중 취소와 interrupt 상태 보존을 지원한다. `RunOptionsTest`에 실제 HTTP 요청 간격, 단건 전후 대기 없음·0ms, 대기 중 중단과 부분 Excel 저장 및 입력/모드 오류 테스트를 추가했다.
 
 - 2026-10-08: `Main`의 `--config` 경로에 `--export-jmx FILE` 분기를 추가하고 `JmxExporter` 및 `jmx-sampler.groovy`로 단일 JMeter 계획 생성을 분리했다. 기존 설정 로더·본문 생성·압축을 재사용하며 결과 저장 실행을 우회한다. 기본 부하와 고정 본문 snapshot, literal 데이터 인코딩, 헤더·timeout·chunk 전송, 옵션 변환 제한과 덮어쓰기 보호를 기록했다. `JmxExportTest` 및 외부 JMeter 실행 도구 `JmxJmeterSmoke`를 추가했다.
 

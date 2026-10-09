@@ -22,8 +22,13 @@ public final class BatchExecutor {
     }
 
     public RunResult run(ClientConfig config, java.util.function.Consumer<String> progress, int loops, boolean skipResult) throws IOException {
+        return run(config, progress, loops, skipResult, 0);
+    }
+
+    public RunResult run(ClientConfig config, java.util.function.Consumer<String> progress, int loops, boolean skipResult, long delayMs) throws IOException {
         config.validate();
         if (loops < 1) throw new IllegalArgumentException("loops must be a positive integer");
+        if (delayMs < 0) throw new IllegalArgumentException("delay must be non-negative milliseconds");
         long total = (long) loops * config.payloadTypes().size();
         String runId = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss_SSS")) + "_" + UUID.randomUUID();
         Path root = Path.of(config.outputDirectory()).toAbsolutePath().normalize();
@@ -49,6 +54,7 @@ public final class BatchExecutor {
                 for (var type : config.payloadTypes()) {
                     if (Thread.currentThread().isInterrupted()) control.cancel();
                     if (control.isCancelled()) break execution;
+                    if (!results.isEmpty() && delayMs > 0 && !control.awaitDelay(delayMs)) break execution;
                     String uuid = UUID.randomUUID().toString();
                     progress.accept("실행 " + (results.size() + 1) + "/" + total + " " + type.path() + " uuid=" + uuid);
                     var result = runner.execute(config, type, generator.generate(type), uuid, artifacts, control);

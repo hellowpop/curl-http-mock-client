@@ -1,5 +1,13 @@
 # 검증 결과
 
+## 유닛 간 실행 간격 (2026-10-09)
+
+푸시 전 Java 21 Maven verify를 다시 실행하여 전체 258개 테스트의 실패·오류·생략 0건과 JAR 빌드 성공을 확인했다. 최종 로그는 `verification/delay-push-verify.log`다.
+
+Java 21에서 `mvn -B verify`로 전체 258개 테스트의 실패·오류·생략 0건과 JAR 빌드 성공을 확인했다. 로그는 `verification/delay-verify.log`다. 빌드된 JAR의 도움말에 `--delay MS`와 기본값·단위·CLI 전용 범위가 표시되는 것도 확인했다.
+
+`RunOptionsTest`는 실제 로컬 HTTP 서버와 curl로 요청 간 200ms 이상 대기, 두 유닛 × 두 번 반복의 반복 경계 및 실패 후 계속 실행을 검증한다. 0ms 및 60,000ms 옵션의 단건 실행에 전후 대기가 없고, 대기 중 interrupt 시 다음 요청을 보내지 않으며 완료된 한 건만 Excel에 저장하고 interrupt 상태를 유지하는 것을 확인했다. 음수·소수·비숫자·long 범위 초과·값 누락 및 샘플/변환/application/JMX 모드 충돌을 실행 전에 거부한다.
+
 ## Apache JMeter JMX 내보내기 (2026-10-08)
 
 푸시 전 Java 21에서 Maven clean verify를 다시 실행하여 253개 테스트의 실패·오류·생략 0건과 BUILD SUCCESS를 확인했다. 로그는 `verification/jmx-push-verify.log`다. README·project.md·CHANGELOG 및 본 검증 문서를 내보내기 구조와 지원 범위에 맞춰 업데이트했다.

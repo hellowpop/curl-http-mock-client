@@ -20,6 +20,8 @@ public final class Main implements Callable<Integer> {
     private boolean skipResult;
     @Option(names = "--loop", paramLabel = "N", description = "Repeat the complete request sequence N times (positive integer; default: 1, CLI run only).")
     private Integer loop;
+    @Option(names = "--delay", paramLabel = "MS", description = "Wait MS milliseconds between units, including loop boundaries (non-negative integer; default: 0, CLI run only).")
+    private Long delay;
     @Option(names = "--export-jmx", paramLabel = "FILE", description = "Export configured requests to a self-contained Apache JMeter .jmx file; requires --config.")
     private Path exportJmx;
 
@@ -42,11 +44,12 @@ public final class Main implements Callable<Integer> {
         ClientConfig config;
         try {
             boolean conversion = mode.excelToYml != null || mode.ymlToExcel != null;
-            if (exportJmx != null && (mode.config == null || application || skipResult || loop != null))
-                throw new IllegalArgumentException("--export-jmx requires --config without --application, --skip-result or --loop");
-            if ((skipResult || loop != null) && (mode.config == null || application))
-                throw new IllegalArgumentException("--skip-result and --loop require --config without --application");
+            if (exportJmx != null && (mode.config == null || application || skipResult || loop != null || delay != null))
+                throw new IllegalArgumentException("--export-jmx requires --config without --application, --skip-result, --loop or --delay");
+            if ((skipResult || loop != null || delay != null) && (mode.config == null || application))
+                throw new IllegalArgumentException("--skip-result, --loop and --delay require --config without --application");
             if (loop != null && loop < 1) throw new IllegalArgumentException("--loop must be a positive integer");
+            if (delay != null && delay < 0) throw new IllegalArgumentException("--delay must be a non-negative integer in milliseconds");
             if (application && mode.config == null) throw new IllegalArgumentException("--application requires --config");
             if (mode.config == null && !curlArguments.isEmpty()) throw new IllegalArgumentException("--curl-arg is only valid with --config");
             if (conversion && output == null) throw new IllegalArgumentException("Conversion requires --output");
@@ -85,7 +88,7 @@ public final class Main implements Callable<Integer> {
                 ApplicationPanel.open(config);
                 return 0;
             }
-            var run = new BatchExecutor().run(config, message -> {}, loop == null ? 1 : loop, skipResult);
+            var run = new BatchExecutor().run(config, message -> {}, loop == null ? 1 : loop, skipResult, delay == null ? 0 : delay);
             if (skipResult) spec.commandLine().getOut().println("Result saving skipped.");
             else {
                 spec.commandLine().getOut().println("Results: " + run.workbook());
