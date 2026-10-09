@@ -18,7 +18,7 @@ Java 21 CLI 또는 `--application` Swing 화면에서 외부 curl 프로세스�
 | `RequestHeaders` | 헤더 형식 검증, 불변 복사, 대소문자 무시 병합, curl 헤더 인수 구성 |
 | `ConfigFiles`, `ExcelConfigCodec` | YAML·Excel 읽기/쓰기, 변환, 입력 형식 검증 |
 | `PayloadTypesExpansion`, `PayloadSize` | CT×TE×PS 조합 확장과 직접 크기 해석 |
-| `PayloadGenerator` | 정확한 크기의 JSON/XML/form/multipart 본문 생성 |
+| `PayloadGenerator` | 정확한 크기의 JSON/XML/form/multipart/BIN 본문 생성 |
 | `CurlArguments` | 추가 curl 옵션의 종류, 인수 개수 및 충돌 검증 |
 | `CurlRunner` | curl 인수 구성, ProcessBuilder 실행, 파일/메모리 본문 전송 및 응답/로그 수집 |
 | `RequestCompression` | gzip·zlib deflate·Unix LZW compress·Brotli 전송 본문 생성 |
@@ -26,6 +26,12 @@ Java 21 CLI 또는 `--application` Swing 화면에서 외부 curl 프로세스�
 | `JsonResponse` | 유효한 JSON 응답의 스트리밍 pretty 저장, 숫자/중복 필드 보존 |
 | `BatchExecutor`, `RunControl` | 전체 목록 반복·순차 실행, 유닛 간 대기, 저장 정책, Ctrl-C 취소와 부분 결과 저장 |
 | `ResultWorkbook`, `ExcelStyles` | 결과 Excel과 파일 링크, 서식 |
+
+## BIN payload (2026-10-10)
+
+`ContentType.BIN`의 토큰은 `bin`, MIME은 `application/octet-stream`이다. 설정 입력은 대소문자 구분 없이 `BIN`/`bin` 및 MIME 문자열을 허용한다. 요청 경로는 `/CT_bin/TE_<TE>/PS_<PS>`이며, `PayloadGenerator`는 지정된 압축 전 크기의 바이트 배열을 무작위 바이너리로 채운다. 텍스트 필드·인코딩·포맷 overhead 없이 원본 바이트를 전송한다.
+
+기존 enum 기반 화면 선택 및 기본 샘플 생성에 자동으로 포함된다. 기본 샘플은 5 CT × 8 TE × 3 PS = 120건이다. YAML/Excel 변환, preset 크기 재정의, curl 파일·메모리 전송, 압축·chunked 및 JMX의 Base64 본문 내보내기는 기존 공통 경로를 사용한다. `BinaryPayloadTest`는 타입 입력·크기·바이너리 생성·설정 왕복을, `CurlIntegrationTest`는 전체 120개 조합의 전송 및 원본 본문 보존을, `JmxExportTest`는 BIN의 MIME과 압축 본문 내보내기를 검증한다.
 
 ## Apache JMeter JMX 내보내기
 
@@ -37,7 +43,7 @@ StAX로 JMeter 1.2/5.0 XML과 TestPlan → ThreadGroup → JSR223Sampler/hashTre
 
 curl 옵션 변환은 literal header/user-agent/referer/basic 또는 bearer 인증/literal cookie/insecure/noproxy `*`로 한정한다. 지원 목록은 [README](README.md)의 JMX 설명을 참고한다. 프록시·리디렉션·중복 curl 헤더·헤더 제거·파일 기반 쿠키 등은 정확한 전송 의미를 보장할 수 없어 거부한다. 지원하지 않는 옵션은 파일 생성 전에 검증한다. 임시 파일에 기록을 완료한 후 목적지로 이동하여 기존 파일을 부분 결과로 덮어쓰지 않는다.
 
-`JmxExportTest`는 CLI 및 YAML/Excel·조합 확장, HTTP/curl 미실행, XML 파라미터·본문·헤더·타임아웃과 덮어쓰기 보호 및 옵션 오류를 검증한다. `JmxJmeterSmoke`는 외부 JMeter 설치 경로와 실행 Java 경로를 받아 로컬 서버로 32개 CT/TE 조합, POST/PUT, 한글 헤더·literal 값, 실패 후 계속 실행·전체 deadline을 검증하는 수동 실행 도구다. [검증 문서](docs/verification.md)에 실행 명령을 기록한다.
+`JmxExportTest`는 CLI 및 YAML/Excel·조합 확장, HTTP/curl 미실행, XML 파라미터·본문·헤더·타임아웃과 덮어쓰기 보호 및 옵션 오류를 검증한다. `JmxJmeterSmoke`는 외부 JMeter 설치 경로와 실행 Java 경로를 받아 로컬 서버로 40개 CT/TE 조합, POST/PUT, 한글 헤더·literal 값, 실패 후 계속 실행·전체 deadline을 검증하는 수동 실행 도구다. [검증 문서](docs/verification.md)에 실행 명령을 기록한다.
 
 ## 공통·개별 요청 헤더
 
@@ -252,3 +258,5 @@ java -jar target/curl-http-mock-client.jar --config samples/config.yml --loop 3 
 - 2026-10-06: 목록 하단 전체실행 버튼과 BatchProgressPanel 모달 실행 화면을 추가했다. BatchExecutor에 진행 이벤트 전달 오버로드를 추가하여 실시간 로그를 표시하고 완료 후 결과 Excel 보기 버튼을 제공한다. 단건/전체 실행의 UI 비활성화는 setRunning에서 공유한다.
 
 - 2026-10-06: 목록 하단 버튼을 선택실행/전체실행 순서로 오른쪽 정렬했다. createBatch에서 전체 또는 필터 결과 설정을 생성하여 모달 실행 흐름을 공유하고 BatchProgressPanel이 실행 모드에 맞는 제목/시작/완료 로그를 표시한다. RequestSearchTest와 BatchProgressPanelTest에서 활성화 조건, 정렬, 검색된 케이스 전송 및 결과 저장을 검증한다.
+
+- 2026-10-10: `ContentType.BIN`과 무작위 바이너리 본문 생성 분기를 추가했다. MIME은 `application/octet-stream`, 경로 토큰은 `CT_bin`이다. 기본 샘플·전체 전송/변환 테스트를 120개 조합으로 확장하고 BIN 설정 왕복·JMX 본문 검증을 추가했다.

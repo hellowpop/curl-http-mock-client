@@ -1,5 +1,10 @@
 # 변경 이력
 
+## 2026-10-10 — BIN payload
+
+- `BIN` payload 타입을 추가했습니다. 지정한 크기의 무작위 바이너리 본문을 `Content-Type: application/octet-stream`으로 전송하며 경로는 `CT_bin`입니다.
+- YAML·Excel·화면 선택, 압축·chunked 전송 및 JMX 내보내기를 지원합니다. 기본 샘플을 120개 조합으로 확장했습니다.
+
 ## 2026-10-09 — 유닛 간 실행 간격
 
 - CLI `--delay MS`로 각 유닛 사이의 대기를 밀리초 단위로 지정합니다. 기본값은 0이며 `--loop` 반복 경계와 `--skip-result`에도 적용합니다. 첫 실행 전·마지막 실행 후에는 대기하지 않습니다.

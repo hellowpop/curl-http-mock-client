@@ -51,9 +51,9 @@ java -jar target/curl-http-mock-client.jar --excel-to-yml sample.xlsx --output c
 java -jar target/curl-http-mock-client.jar --yml-to-excel sample.yml --output converted.xlsx
 ```
 
-모드는 한 번에 하나만 지정합니다. 기존 샘플/변환 파일을 덮어쓰려면 `--overwrite`를 명시합니다. 실제 endpoint에 맞게 `endpointUrl`을 수정한 뒤 실행하세요. 새로 생성하는 샘플은 localhost:8080의 전체 96개 조합입니다. 기존 설정파일은 파일에 적힌 요청 목록을 사용합니다. 이 프로그램은 서버를 시작하지 않습니다.
+모드는 한 번에 하나만 지정합니다. 기존 샘플/변환 파일을 덮어쓰려면 `--overwrite`를 명시합니다. 실제 endpoint에 맞게 `endpointUrl`을 수정한 뒤 실행하세요. 새로 생성하는 샘플은 localhost:8080의 전체 120개 조합입니다. 기존 설정파일은 파일에 적힌 요청 목록을 사용합니다. 이 프로그램은 서버를 시작하지 않습니다.
 
-`--loop N`은 설정의 전체 요청 목록을 순서대로 N회 반복합니다. 기본값은 1회이며 N은 1 이상의 정수입니다. 요청이 96건이고 `--loop 3`이면 총 288건을 실행합니다. 각 요청마다 새 UUID와 payload를 생성하며 모든 반복 결과를 하나의 Excel 파일과 결과 디렉토리에 저장합니다.
+`--loop N`은 설정의 전체 요청 목록을 순서대로 N회 반복합니다. 기본값은 1회이며 N은 1 이상의 정수입니다. 요청이 120건이고 `--loop 3`이면 총 360건을 실행합니다. 각 요청마다 새 UUID와 payload를 생성하며 모든 반복 결과를 하나의 Excel 파일과 결과 디렉토리에 저장합니다.
 
 `--delay MS`는 각 유닛(확장된 요청 한 건)의 완료 후 다음 유닛 실행 전 대기 시간을 밀리초 단위로 지정합니다. 예: `--delay 10`은 유닛 사이에 10ms 대기합니다. 기본값은 0이며 0 이상의 정수를 받습니다. 첫 유닛 전과 마지막 유닛 후에는 대기하지 않으며, `--loop`의 반복 경계에도 적용합니다. `--skip-result`와 함께 사용할 수 있습니다. CLI `--config` 실행 전용이며 `--application`, 샘플 생성, 변환, JMX 내보내기와 함께 사용할 수 없습니다. 대기 중 중단하면 남은 실행을 취소하고 기본 저장 모드에서 완료된 결과를 저장합니다.
 
@@ -79,7 +79,7 @@ JMX 변환에서 지원하는 추가 curl 인수는 `--header`/`-H`, `--user-age
 
 ### Swing application mode
 
-전체 기본 조합 설정은 [YAML](samples/config-all-cases.yml) 또는 [Excel](samples/config-all-cases.xlsx)을 사용하세요. 4개 Content-Type × 8개 Transfer-Encoding × 3개 기본 크기(SM/CM/LG), 총 96건입니다. 기본 endpoint는 `http://localhost:8080`이며 실제 서버 주소로 변경한 뒤 실행합니다.
+전체 기본 조합 설정은 [YAML](samples/config-all-cases.yml) 또는 [Excel](samples/config-all-cases.xlsx)을 사용하세요. 5개 Content-Type × 8개 Transfer-Encoding × 3개 기본 크기(SM/CM/LG), 총 120건입니다. 기본 endpoint는 `http://localhost:8080`이며 실제 서버 주소로 변경한 뒤 실행합니다.
 
 ```powershell
 java -jar target/curl-http-mock-client.jar --config samples/config-all-cases.yml
@@ -250,6 +250,16 @@ java -jar target/curl-http-mock-client.jar --config samples/config.yml --curl-ar
 | xml | application/xml | CT_xml |
 | form | application/x-www-form-urlencoded | CT_form |
 | multipart | multipart/form-data; boundary=... | CT_multipart |
+| BIN (bin) | application/octet-stream | CT_bin |
+
+`contentType: BIN`은 `payloadSize`에 지정한 크기의 무작위 바이너리 바이트를 생성합니다. `bin` 또는 `application/octet-stream`도 입력할 수 있으며, 저장 토큰과 경로는 `bin`입니다. 기존 압축·chunked 전송과 JMX 내보내기를 동일하게 지원합니다.
+
+```yaml
+payloadTypes:
+  - contentType: BIN
+    transferEncoding: NA
+    payloadSize: SM
+```
 
 | TE 설정값 | 전송 방식 |
 |---|---|
@@ -349,7 +359,7 @@ JSON과 XML은 줄바꿈과 2칸 들여쓰기를 사용하는 pretty 형태로 �
 
 `ClientConfig`와 enum은 공통 모델, `ConfigFiles`/`ExcelConfigCodec`은 파일 입출력, `PayloadGenerator`는 본문 생성, `CurlRunner`는 프로세스 실행, `BatchExecutor`/`ResultWorkbook`은 결과 저장, `Main`은 CLI를 담당합니다.
 
-테스트는 12개 CT/PS 조합의 형식과 정확한 크기, 설정 왕복 변환과 오류, 실제 curl의 96개 CT/TE/PS 전송, gzip·deflate·compress·Brotli 복원, chunked 헤더, 바이너리 응답, timeout/연결 거부/HTTP 오류, 링크와 CLI 옵션을 검증합니다. 별도 JVM을 종료시키는 테스트로 첫 요청 중 중단과 완료 요청 후 중단의 결과 저장을 검증합니다.
+테스트는 12개 CT/PS 조합의 형식과 정확한 크기, 설정 왕복 변환과 오류, 실제 curl의 120개 CT/TE/PS 전송, gzip·deflate·compress·Brotli 복원, chunked 헤더, 바이너리 응답, timeout/연결 거부/HTTP 오류, 링크와 CLI 옵션을 검증합니다. 별도 JVM을 종료시키는 테스트로 첫 요청 중 중단과 완료 요청 후 중단의 결과 저장을 검증합니다.
 
 최신 검증은 **214개 테스트 통과**입니다. 반복 실행 순서·실패 집계, 8개 전송 방식의 저장 생략과 본문 복원, 옵션 검증·중단·curl 실행 실패를 포함합니다. LZW 스트림의 분할 I/O·외부 .Z 호환·finish/close, application 실행 요약의 메모리 편집과 입력 검증, curl 추가 인수, YAML·Excel 변환, 기본값/항목별 timeout, 기존 Excel 호환도 검증합니다. 이전 기능별 최종 JAR 검증 기록을 포함한 자세한 결과는 [검증 문서](docs/verification.md), 변경 이력은 [CHANGELOG](CHANGELOG.md), 구성과 구조 변경 내역은 [프로젝트 기술 문서](project.md)를 참고하세요.
 

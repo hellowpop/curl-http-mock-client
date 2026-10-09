@@ -9,289 +9,483 @@ payloadTypes:
 - contentType: "json"
   transferEncoding: "NA"
   payloadSize: "SM"
+  headers: {}
 - contentType: "json"
   transferEncoding: "NA"
   payloadSize: "CM"
+  headers: {}
 - contentType: "json"
   transferEncoding: "NA"
   payloadSize: "LG"
+  headers: {}
 - contentType: "json"
   transferEncoding: "GZ"
   payloadSize: "SM"
+  headers: {}
 - contentType: "json"
   transferEncoding: "GZ"
   payloadSize: "CM"
+  headers: {}
 - contentType: "json"
   transferEncoding: "GZ"
   payloadSize: "LG"
+  headers: {}
 - contentType: "json"
   transferEncoding: "CSB"
   payloadSize: "SM"
+  headers: {}
 - contentType: "json"
   transferEncoding: "CSB"
   payloadSize: "CM"
+  headers: {}
 - contentType: "json"
   transferEncoding: "CSB"
   payloadSize: "LG"
+  headers: {}
 - contentType: "json"
   transferEncoding: "CCB"
   payloadSize: "SM"
+  headers: {}
 - contentType: "json"
   transferEncoding: "CCB"
   payloadSize: "CM"
+  headers: {}
 - contentType: "json"
   transferEncoding: "CCB"
   payloadSize: "LG"
+  headers: {}
 - contentType: "json"
   transferEncoding: "CLB"
   payloadSize: "SM"
+  headers: {}
 - contentType: "json"
   transferEncoding: "CLB"
   payloadSize: "CM"
+  headers: {}
 - contentType: "json"
   transferEncoding: "CLB"
   payloadSize: "LG"
+  headers: {}
 - contentType: "json"
   transferEncoding: "DEFLATE"
   payloadSize: "SM"
+  headers: {}
 - contentType: "json"
   transferEncoding: "DEFLATE"
   payloadSize: "CM"
+  headers: {}
 - contentType: "json"
   transferEncoding: "DEFLATE"
   payloadSize: "LG"
+  headers: {}
 - contentType: "json"
   transferEncoding: "COMPRESS"
   payloadSize: "SM"
+  headers: {}
 - contentType: "json"
   transferEncoding: "COMPRESS"
   payloadSize: "CM"
+  headers: {}
 - contentType: "json"
   transferEncoding: "COMPRESS"
   payloadSize: "LG"
+  headers: {}
 - contentType: "json"
   transferEncoding: "BR"
   payloadSize: "SM"
+  headers: {}
 - contentType: "json"
   transferEncoding: "BR"
   payloadSize: "CM"
+  headers: {}
 - contentType: "json"
   transferEncoding: "BR"
   payloadSize: "LG"
+  headers: {}
 - contentType: "xml"
   transferEncoding: "NA"
   payloadSize: "SM"
+  headers: {}
 - contentType: "xml"
   transferEncoding: "NA"
   payloadSize: "CM"
+  headers: {}
 - contentType: "xml"
   transferEncoding: "NA"
   payloadSize: "LG"
+  headers: {}
 - contentType: "xml"
   transferEncoding: "GZ"
   payloadSize: "SM"
+  headers: {}
 - contentType: "xml"
   transferEncoding: "GZ"
   payloadSize: "CM"
+  headers: {}
 - contentType: "xml"
   transferEncoding: "GZ"
   payloadSize: "LG"
+  headers: {}
 - contentType: "xml"
   transferEncoding: "CSB"
   payloadSize: "SM"
+  headers: {}
 - contentType: "xml"
   transferEncoding: "CSB"
   payloadSize: "CM"
+  headers: {}
 - contentType: "xml"
   transferEncoding: "CSB"
   payloadSize: "LG"
+  headers: {}
 - contentType: "xml"
   transferEncoding: "CCB"
   payloadSize: "SM"
+  headers: {}
 - contentType: "xml"
   transferEncoding: "CCB"
   payloadSize: "CM"
+  headers: {}
 - contentType: "xml"
   transferEncoding: "CCB"
   payloadSize: "LG"
+  headers: {}
 - contentType: "xml"
   transferEncoding: "CLB"
   payloadSize: "SM"
+  headers: {}
 - contentType: "xml"
   transferEncoding: "CLB"
   payloadSize: "CM"
+  headers: {}
 - contentType: "xml"
   transferEncoding: "CLB"
   payloadSize: "LG"
+  headers: {}
 - contentType: "xml"
   transferEncoding: "DEFLATE"
   payloadSize: "SM"
+  headers: {}
 - contentType: "xml"
   transferEncoding: "DEFLATE"
   payloadSize: "CM"
+  headers: {}
 - contentType: "xml"
   transferEncoding: "DEFLATE"
   payloadSize: "LG"
+  headers: {}
 - contentType: "xml"
   transferEncoding: "COMPRESS"
   payloadSize: "SM"
+  headers: {}
 - contentType: "xml"
   transferEncoding: "COMPRESS"
   payloadSize: "CM"
+  headers: {}
 - contentType: "xml"
   transferEncoding: "COMPRESS"
   payloadSize: "LG"
+  headers: {}
 - contentType: "xml"
   transferEncoding: "BR"
   payloadSize: "SM"
+  headers: {}
 - contentType: "xml"
   transferEncoding: "BR"
   payloadSize: "CM"
+  headers: {}
 - contentType: "xml"
   transferEncoding: "BR"
   payloadSize: "LG"
+  headers: {}
 - contentType: "form"
   transferEncoding: "NA"
   payloadSize: "SM"
+  headers: {}
 - contentType: "form"
   transferEncoding: "NA"
   payloadSize: "CM"
+  headers: {}
 - contentType: "form"
   transferEncoding: "NA"
   payloadSize: "LG"
+  headers: {}
 - contentType: "form"
   transferEncoding: "GZ"
   payloadSize: "SM"
+  headers: {}
 - contentType: "form"
   transferEncoding: "GZ"
   payloadSize: "CM"
+  headers: {}
 - contentType: "form"
   transferEncoding: "GZ"
   payloadSize: "LG"
+  headers: {}
 - contentType: "form"
   transferEncoding: "CSB"
   payloadSize: "SM"
+  headers: {}
 - contentType: "form"
   transferEncoding: "CSB"
   payloadSize: "CM"
+  headers: {}
 - contentType: "form"
   transferEncoding: "CSB"
   payloadSize: "LG"
+  headers: {}
 - contentType: "form"
   transferEncoding: "CCB"
   payloadSize: "SM"
+  headers: {}
 - contentType: "form"
   transferEncoding: "CCB"
   payloadSize: "CM"
+  headers: {}
 - contentType: "form"
   transferEncoding: "CCB"
   payloadSize: "LG"
+  headers: {}
 - contentType: "form"
   transferEncoding: "CLB"
   payloadSize: "SM"
+  headers: {}
 - contentType: "form"
   transferEncoding: "CLB"
   payloadSize: "CM"
+  headers: {}
 - contentType: "form"
   transferEncoding: "CLB"
   payloadSize: "LG"
+  headers: {}
 - contentType: "form"
   transferEncoding: "DEFLATE"
   payloadSize: "SM"
+  headers: {}
 - contentType: "form"
   transferEncoding: "DEFLATE"
   payloadSize: "CM"
+  headers: {}
 - contentType: "form"
   transferEncoding: "DEFLATE"
   payloadSize: "LG"
+  headers: {}
 - contentType: "form"
   transferEncoding: "COMPRESS"
   payloadSize: "SM"
+  headers: {}
 - contentType: "form"
   transferEncoding: "COMPRESS"
   payloadSize: "CM"
+  headers: {}
 - contentType: "form"
   transferEncoding: "COMPRESS"
   payloadSize: "LG"
+  headers: {}
 - contentType: "form"
   transferEncoding: "BR"
   payloadSize: "SM"
+  headers: {}
 - contentType: "form"
   transferEncoding: "BR"
   payloadSize: "CM"
+  headers: {}
 - contentType: "form"
   transferEncoding: "BR"
   payloadSize: "LG"
+  headers: {}
 - contentType: "multipart"
   transferEncoding: "NA"
   payloadSize: "SM"
+  headers: {}
 - contentType: "multipart"
   transferEncoding: "NA"
   payloadSize: "CM"
+  headers: {}
 - contentType: "multipart"
   transferEncoding: "NA"
   payloadSize: "LG"
+  headers: {}
 - contentType: "multipart"
   transferEncoding: "GZ"
   payloadSize: "SM"
+  headers: {}
 - contentType: "multipart"
   transferEncoding: "GZ"
   payloadSize: "CM"
+  headers: {}
 - contentType: "multipart"
   transferEncoding: "GZ"
   payloadSize: "LG"
+  headers: {}
 - contentType: "multipart"
   transferEncoding: "CSB"
   payloadSize: "SM"
+  headers: {}
 - contentType: "multipart"
   transferEncoding: "CSB"
   payloadSize: "CM"
+  headers: {}
 - contentType: "multipart"
   transferEncoding: "CSB"
   payloadSize: "LG"
+  headers: {}
 - contentType: "multipart"
   transferEncoding: "CCB"
   payloadSize: "SM"
+  headers: {}
 - contentType: "multipart"
   transferEncoding: "CCB"
   payloadSize: "CM"
+  headers: {}
 - contentType: "multipart"
   transferEncoding: "CCB"
   payloadSize: "LG"
+  headers: {}
 - contentType: "multipart"
   transferEncoding: "CLB"
   payloadSize: "SM"
+  headers: {}
 - contentType: "multipart"
   transferEncoding: "CLB"
   payloadSize: "CM"
+  headers: {}
 - contentType: "multipart"
   transferEncoding: "CLB"
   payloadSize: "LG"
+  headers: {}
 - contentType: "multipart"
   transferEncoding: "DEFLATE"
   payloadSize: "SM"
+  headers: {}
 - contentType: "multipart"
   transferEncoding: "DEFLATE"
   payloadSize: "CM"
+  headers: {}
 - contentType: "multipart"
   transferEncoding: "DEFLATE"
   payloadSize: "LG"
+  headers: {}
 - contentType: "multipart"
   transferEncoding: "COMPRESS"
   payloadSize: "SM"
+  headers: {}
 - contentType: "multipart"
   transferEncoding: "COMPRESS"
   payloadSize: "CM"
+  headers: {}
 - contentType: "multipart"
   transferEncoding: "COMPRESS"
   payloadSize: "LG"
+  headers: {}
 - contentType: "multipart"
   transferEncoding: "BR"
   payloadSize: "SM"
+  headers: {}
 - contentType: "multipart"
   transferEncoding: "BR"
   payloadSize: "CM"
+  headers: {}
 - contentType: "multipart"
   transferEncoding: "BR"
   payloadSize: "LG"
+  headers: {}
+- contentType: "bin"
+  transferEncoding: "NA"
+  payloadSize: "SM"
+  headers: {}
+- contentType: "bin"
+  transferEncoding: "NA"
+  payloadSize: "CM"
+  headers: {}
+- contentType: "bin"
+  transferEncoding: "NA"
+  payloadSize: "LG"
+  headers: {}
+- contentType: "bin"
+  transferEncoding: "GZ"
+  payloadSize: "SM"
+  headers: {}
+- contentType: "bin"
+  transferEncoding: "GZ"
+  payloadSize: "CM"
+  headers: {}
+- contentType: "bin"
+  transferEncoding: "GZ"
+  payloadSize: "LG"
+  headers: {}
+- contentType: "bin"
+  transferEncoding: "CSB"
+  payloadSize: "SM"
+  headers: {}
+- contentType: "bin"
+  transferEncoding: "CSB"
+  payloadSize: "CM"
+  headers: {}
+- contentType: "bin"
+  transferEncoding: "CSB"
+  payloadSize: "LG"
+  headers: {}
+- contentType: "bin"
+  transferEncoding: "CCB"
+  payloadSize: "SM"
+  headers: {}
+- contentType: "bin"
+  transferEncoding: "CCB"
+  payloadSize: "CM"
+  headers: {}
+- contentType: "bin"
+  transferEncoding: "CCB"
+  payloadSize: "LG"
+  headers: {}
+- contentType: "bin"
+  transferEncoding: "CLB"
+  payloadSize: "SM"
+  headers: {}
+- contentType: "bin"
+  transferEncoding: "CLB"
+  payloadSize: "CM"
+  headers: {}
+- contentType: "bin"
+  transferEncoding: "CLB"
+  payloadSize: "LG"
+  headers: {}
+- contentType: "bin"
+  transferEncoding: "DEFLATE"
+  payloadSize: "SM"
+  headers: {}
+- contentType: "bin"
+  transferEncoding: "DEFLATE"
+  payloadSize: "CM"
+  headers: {}
+- contentType: "bin"
+  transferEncoding: "DEFLATE"
+  payloadSize: "LG"
+  headers: {}
+- contentType: "bin"
+  transferEncoding: "COMPRESS"
+  payloadSize: "SM"
+  headers: {}
+- contentType: "bin"
+  transferEncoding: "COMPRESS"
+  payloadSize: "CM"
+  headers: {}
+- contentType: "bin"
+  transferEncoding: "COMPRESS"
+  payloadSize: "LG"
+  headers: {}
+- contentType: "bin"
+  transferEncoding: "BR"
+  payloadSize: "SM"
+  headers: {}
+- contentType: "bin"
+  transferEncoding: "BR"
+  payloadSize: "CM"
+  headers: {}
+- contentType: "bin"
+  transferEncoding: "BR"
+  payloadSize: "LG"
+  headers: {}
 curlArguments: []
+headers: {}
+payloadSizes: {}

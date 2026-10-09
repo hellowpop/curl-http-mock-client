@@ -15,6 +15,11 @@ public final class PayloadGenerator {
             new DefaultPrettyPrinter().withObjectIndenter(new DefaultIndenter("  ", "\n")));
 
     public Payload generate(PayloadType type) {
+        if (type.contentType() == ContentType.BIN) {
+            byte[] body = new byte[type.payloadSize().bytes()];
+            ThreadLocalRandom.current().nextBytes(body);
+            return new Payload(body, type.contentType().mime());
+        }
         var fields = new LinkedHashMap<String, String>();
         for (int i = 0; i < 8; i++) fields.put("n" + i + "_" + random(12), random(32));
         String lastName = "n8_" + random(12);

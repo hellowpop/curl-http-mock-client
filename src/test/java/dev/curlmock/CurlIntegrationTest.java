@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class CurlIntegrationTest {
     @TempDir Path temp;
 
-    @Test void sendsAllNinetySixScenariosThroughRealCurlAndLinksTheirArtifacts() throws Exception {
+    @Test void sendsAllOneHundredTwentyScenariosThroughRealCurlAndLinksTheirArtifacts() throws Exception {
         var captured = java.util.Collections.synchronizedList(new ArrayList<Captured>());
         byte[] response = new byte[] {0, 1, (byte) 255, 10, 42};
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
@@ -42,11 +42,11 @@ class CurlIntegrationTest {
             try {
                 var config = config(server, ClientConfig.sample().payloadTypes(), 10, "curl");
                 var run = new BatchExecutor().run(config);
-                assertEquals(96, run.transactions().size());
-                assertEquals(96, captured.size());
+                assertEquals(120, run.transactions().size());
+                assertEquals(120, captured.size());
                 assertTrue(run.success());
                 assertTrue(run.workbook().getFileName().toString().matches("[0-9]{8}_[0-9]{6}_[0-9]{3}_[a-f0-9-]{36}\\.xlsx"));
-                for (int i = 0; i < 96; i++) {
+                for (int i = 0; i < 120; i++) {
                     var type = config.payloadTypes().get(i);
                     var got = captured.get(i);
                     assertEquals("/base" + type.path(), got.path());
@@ -67,6 +67,7 @@ class CurlIntegrationTest {
                         case XML -> assertEquals("payload", DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(new ByteArrayInputStream(got.body())).getDocumentElement().getTagName());
                         case FORM -> assertEquals(9, new String(got.body(), java.nio.charset.StandardCharsets.UTF_8).split("&").length);
                         case MULTIPART -> assertTrue(new String(got.body(), java.nio.charset.StandardCharsets.UTF_8).endsWith("--\r\n"));
+                        case BIN -> assertEquals("application/octet-stream", got.contentType());
                     }
                     var tx = run.transactions().get(i);
                     java.util.UUID.fromString(tx.uuid());
@@ -81,9 +82,9 @@ class CurlIntegrationTest {
                 }
                 try (var book = new XSSFWorkbook(Files.newInputStream(run.workbook()))) {
                     var sheet = book.getSheet("Results");
-                    assertEquals(97, sheet.getPhysicalNumberOfRows());
+                    assertEquals(121, sheet.getPhysicalNumberOfRows());
                     assertEquals("uuid", sheet.getRow(0).getCell(0).getStringCellValue());
-                    for (int row = 1; row <= 96; row++) {
+                    for (int row = 1; row <= 120; row++) {
                         for (int col : new int[] {2, 4, 10}) {
                             var link = sheet.getRow(row).getCell(col).getHyperlink();
                             assertNotNull(link);
