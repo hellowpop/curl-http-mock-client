@@ -22,6 +22,8 @@ public final class JmxExporter {
 
     public static void write(Path destination, ClientConfig config, boolean overwrite) throws IOException {
         config.validate();
+        if (config.payloadTypes().stream().anyMatch(type -> type.requestType() == RequestType.MTLS) || config.certificates().configured())
+            throw new IllegalArgumentException("JMX export does not support MTLS or certificates settings; use CLI/application execution");
         Path path = destination.toAbsolutePath().normalize();
         if (!path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".jmx"))
             throw new IllegalArgumentException("JMX export requires a .jmx file: " + destination);
@@ -88,7 +90,7 @@ public final class JmxExporter {
             if (type.transferEncoding().contentEncoding() != null)
                 replace(headers, "Content-Encoding", type.transferEncoding().contentEncoding());
             var data = new LinkedHashMap<String, Object>();
-            data.put("url", config.endpointUrl().replaceAll("/+$", "") + type.path());
+            data.put("url", config.requestUrl(type));
             data.put("method", config.method());
             data.put("connectTimeout", milliseconds(type.effectiveConnectTimeoutSeconds(config)));
             data.put("requestTimeout", milliseconds(type.effectiveRequestTimeoutSeconds(config)));

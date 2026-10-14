@@ -1,0 +1,19 @@
+# Replace URLs and certificate paths before execution.
+# Schannel (Windows curl) uses P12; OpenSSL curl also supports PEM + clientKey.
+endpointUrl: https://localhost:8443
+mtlsEndpointUrl: https://localhost:9443
+method: POST
+curlExecutable: curl
+connectTimeoutSeconds: 3
+requestTimeoutSeconds: 3
+outputDirectory: results
+certificates:
+  caCertificate: certs/ca.pem
+  clientCertificate: certs/client.p12
+  certificateType: P12
+  keyPassword: change-me
+payloadTypes:
+  - contentType: json
+    transferEncoding: NA
+    payloadSize: SM
+    requestType: TLS,MTLS

@@ -19,7 +19,7 @@ final class RuntimeSummary extends JTable {
     RuntimeSummary() {
         values = new DefaultTableModel(new String[]{"항목", "실행값", "적용 범위"}, 0) {
             @Override public boolean isCellEditable(int row, int column) {
-                return isEnabled() && column == 1 && row < 13;
+                return isEnabled() && column == 1 && row < 16;
             }
         };
         setModel(values);
@@ -38,6 +38,7 @@ final class RuntimeSummary extends JTable {
             if (row == 0) return new DefaultCellEditor(new JComboBox<>(new String[]{"POST", "PUT", "PATCH"}));
             if (row == 2) return new DefaultCellEditor(new JComboBox<>(java.util.Arrays.stream(ContentType.values()).map(Enum::name).toArray(String[]::new)));
             if (row == 3) return new DefaultCellEditor(new JComboBox<>(java.util.Arrays.stream(TransferEncoding.values()).map(Enum::name).toArray(String[]::new)));
+            if (row == 13) return new DefaultCellEditor(new JComboBox<>(new String[]{"TLS", "MTLS"}));
         }
         return super.getCellEditor(row, column);
     }
@@ -59,7 +60,10 @@ final class RuntimeSummary extends JTable {
         add("Common headers", JSON.valueToTree(config.headers()).toString(), "전체 요청");
         add("Request headers", JSON.valueToTree(type.headers()).toString(), "선택 요청");
         add("Payload sizes", JSON.valueToTree(config.payloadSizes()).toString(), "전체 요청");
-        add("URL", config.endpointUrl().replaceAll("/+$", "") + type.path(), "자동 계산");
+        add("Request type", type.effectiveRequestType().name(), "선택 요청");
+        add("MTLS endpoint URL", config.mtlsEndpointUrl() == null ? "" : config.mtlsEndpointUrl(), "전체 요청");
+        add("Certificates", JSON.valueToTree(config.certificates()).toString(), "전체 요청");
+        add("URL", config.requestUrl(type), "자동 계산");
         add("Payload bytes", type.payloadSize().bytes(), "자동 계산");
     }
 
@@ -69,10 +73,12 @@ final class RuntimeSummary extends JTable {
         var original = config.payloadTypes().get(index);
         int connect = Integer.parseInt(text(5));
         int request = Integer.parseInt(text(6));
+        RequestType requestType = RequestType.parse(text(13));
         var type = new PayloadType(ContentType.parse(text(2)), TransferEncoding.parse(text(3)),
                 PayloadSize.parse(text(4)), connect == original.effectiveConnectTimeoutSeconds(config)
                 ? original.connectTimeoutSeconds() : Integer.valueOf(connect), request == original.effectiveRequestTimeoutSeconds(config)
-                ? original.requestTimeoutSeconds() : Integer.valueOf(request), headers(11));
+                ? original.requestTimeoutSeconds() : Integer.valueOf(request), headers(11),
+                requestType == original.effectiveRequestType() ? original.requestType() : requestType);
         List<String> arguments = new ArrayList<>();
         try {
             var node = JSON.readTree(text(8));
@@ -87,13 +93,26 @@ final class RuntimeSummary extends JTable {
         var types = new ArrayList<>(config.payloadTypes());
         types.set(index, type);
         var updated = new ClientConfig(text(1), text(0).toUpperCase(Locale.ROOT), text(7),
-                config.connectTimeoutSeconds(), config.requestTimeoutSeconds(), text(9), List.copyOf(types), arguments, headers(10), payloadSizes());
+                config.connectTimeoutSeconds(), config.requestTimeoutSeconds(), text(9), List.copyOf(types), arguments, headers(10), payloadSizes(),
+                text(14).isEmpty() ? null : text(14), certificates());
         updated.validate();
         java.nio.file.Path.of(updated.outputDirectory());
         return updated;
     }
 
     private void add(String label, Object value, String scope) { values.addRow(new Object[]{label, value, scope}); }
+    private Certificates certificates() {
+        try {
+            var node = JSON.readTree(text(15));
+            if (node == null || !node.isObject()) throw new IllegalArgumentException("Certificates must be a JSON string object");
+            node.fields().forEachRemaining(field -> {
+                if (!field.getValue().isTextual()) throw new IllegalArgumentException("Certificate values must be strings");
+            });
+            return JSON.treeToValue(node, Certificates.class);
+        } catch (java.io.IOException e) {
+            throw new IllegalArgumentException("Certificates must be a JSON string object", e);
+        }
+    }
     private java.util.Map<String, String> payloadSizes() {
         try {
             var node = JSON.readTree(text(12));

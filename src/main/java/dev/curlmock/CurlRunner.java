@@ -38,7 +38,7 @@ final class CurlRunner {
                 RequestCompression.write(type.transferEncoding(), payload.body(), wireBody);
             }
         }
-        String url = config.endpointUrl().replaceAll("/+$", "") + type.path();
+        String url = config.requestUrl(type);
         int connectTimeout = type.effectiveConnectTimeoutSeconds(config);
         int requestTimeout = type.effectiveRequestTimeoutSeconds(config);
         var command = new ArrayList<>(List.of(config.curlExecutable(), "--disable", "--silent", "--show-error", "--verbose",
@@ -54,9 +54,12 @@ final class CurlRunner {
         }
         if (!skipResult) command.addAll(List.of("--dump-header", responseHeadersFile.toString()));
         RequestHeaders.append(command, config, type);
+        config.certificates().append(command, type.requestType() == RequestType.MTLS);
+        if ("https".equalsIgnoreCase(java.net.URI.create(url).getScheme()))
+            command.addAll(List.of("--proto", "=https", "--proto-redir", "=https"));
         if (!skipResult) Files.writeString(log, "uuid: " + uuid + "\nendpoint: " + url + "\nrequest entity file: " + wireBody
                 + "\nresponse entity file: " + response + "\nstdin block bytes: " + type.transferEncoding().blockBytes()
-                + "\nCommand arguments (JSON): " + new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(command)
+                + "\nCommand arguments (JSON): " + new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(CurlArguments.redacted(command))
                 + "\n\n--- curl stderr / verbose ---\n", StandardCharsets.UTF_8);
         int exit = -1;
         String error = "";

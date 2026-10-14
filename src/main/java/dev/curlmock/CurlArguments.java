@@ -27,6 +27,21 @@ final class CurlArguments {
 
     private CurlArguments() {}
 
+    static void validateTls(List<String> arguments) {
+        var managed = Set.of("--cert", "-E", "--cert-type", "--key", "--key-type", "--pass", "--cacert", "--capath");
+        for (int i = 0; i < arguments.size(); i++) {
+            String option = arguments.get(i);
+            if (managed.contains(option)) throw new IllegalArgumentException("Use certificates settings instead of curl option: " + option);
+            if (VALUES.contains(option)) i++;
+        }
+    }
+
+    static List<String> redacted(List<String> command) {
+        var safe = new java.util.ArrayList<>(command);
+        for (int i = 0; i < safe.size() - 1; i++) if (safe.get(i).equals("--pass")) safe.set(++i, "[redacted]");
+        return safe;
+    }
+
     static void validate(List<String> arguments) {
         for (String argument : arguments) {
             if (argument == null || argument.indexOf('\0') >= 0 || argument.indexOf('\r') >= 0 || argument.indexOf('\n') >= 0)

@@ -3,10 +3,19 @@ package dev.curlmock;
 @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
 public record PayloadType(ContentType contentType, TransferEncoding transferEncoding, PayloadSize payloadSize,
                           Integer connectTimeoutSeconds, Integer requestTimeoutSeconds,
-                          java.util.Map<String, String> headers) {
+                          java.util.Map<String, String> headers, RequestType requestType) {
     public PayloadType {
         headers = RequestHeaders.copy(headers);
     }
+
+    public PayloadType(ContentType contentType, TransferEncoding transferEncoding, PayloadSize payloadSize,
+                       Integer connectTimeoutSeconds, Integer requestTimeoutSeconds, java.util.Map<String, String> headers) {
+        this(contentType, transferEncoding, payloadSize, connectTimeoutSeconds, requestTimeoutSeconds, headers, null);
+    }
+
+    public RequestType effectiveRequestType() { return requestType == null ? RequestType.TLS : requestType; }
+
+    public String searchText() { return effectiveRequestType() + " " + path(); }
 
     public PayloadType(ContentType contentType, TransferEncoding transferEncoding, PayloadSize payloadSize,
                        Integer connectTimeoutSeconds, Integer requestTimeoutSeconds) {

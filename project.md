@@ -14,7 +14,8 @@ Java 21 CLI 또는 `--application` Swing 화면에서 외부 curl 프로세스�
 | `RequestListRenderer` | 원래 케이스 번호 유지, 검색어 일치 부분 강조 |
 | `RequestSearch` | 공백/콤마 검색 토큰 분리 규칙 공유 |
 | `ResultPane`, `FileContentPopup` | 결과 하단 파일 이름 버튼, 비동기 텍스트/Excel 내용 팝업 |
-| `ClientConfig`, `PayloadType` | 공통 설정, 기본값, 요청별 timeout 및 공통·개별 헤더 |
+| `ClientConfig`, `PayloadType`, `RequestType` | 공통 설정, TLS/MTLS 타입·목적지, 기본값, 요청별 timeout 및 공통·개별 헤더 |
+| `Certificates` | PEM/P12 클라이언트 인증·서버 CA 설정, 경로 정규화 및 실행 파일 검증 |
 | `RequestHeaders` | 헤더 형식 검증, 불변 복사, 대소문자 무시 병합, curl 헤더 인수 구성 |
 | `ConfigFiles`, `ExcelConfigCodec` | YAML·Excel 읽기/쓰기, 변환, 입력 형식 검증 |
 | `PayloadTypesExpansion`, `PayloadSize` | CT×TE×PS 조합 확장과 직접 크기 해석 |
@@ -26,6 +27,55 @@ Java 21 CLI 또는 `--application` Swing 화면에서 외부 curl 프로세스�
 | `JsonResponse` | 유효한 JSON 응답의 스트리밍 pretty 저장, 숫자/중복 필드 보존 |
 | `BatchExecutor`, `RunControl` | 전체 목록 반복·순차 실행, 유닛 간 대기, 저장 정책, Ctrl-C 취소와 부분 결과 저장 |
 | `ResultWorkbook`, `ExcelStyles` | 결과 Excel과 파일 링크, 서식 |
+
+## 프로젝트 분석 (2026-10-13)
+
+HEAD `ec29b47` 기준으로 Java 21/Maven 단일 모듈의 HTTP 요청 시나리오 실행 도구다. mock 서버를 시작하지 않으며 외부 curl 실행 파일과 호출 대상 서버가 필요하다. CLI와 Swing은 동일한 설정 모델·본문 생성기·배치 실행기를 공유한다.
+
+### 실행 흐름과 기능 범위
+
+`Main → ConfigFiles/ExcelConfigCodec → ClientConfig → BatchExecutor → PayloadGenerator/CurlRunner → ResultWorkbook` 순서로 설정을 검증하고 요청을 순차 전송한다. application 모드는 `ApplicationPanel/RuntimeSummary`에서 설정 snapshot을 만든 뒤 같은 실행기를 SwingWorker에서 호출한다. JMX 내보내기는 `JmxExporter`로 분기하며 curl 실행을 생략한다.
+
+- 본문: JSON/XML/form/multipart/BIN. 기본 SM=2 KiB·CM=16 KiB·LG=64 KiB 및 preset 재정의와 2 KiB~64 MiB 직접 지정.
+- 전송: NA/GZ/DEFLATE/COMPRESS/BR 및 CSB/CCB/CLB chunked. 기본 전체 조합은 5 CT × 8 TE × 3 PS = 120건.
+- 설정: YAML/Excel 변환, 콤마 목록 조합 확장, 공통·개별 헤더와 timeout, 제한된 추가 curl 인수.
+- 실행: 단건·검색 결과·전체, CLI 반복·유닛 간 대기·저장 생략. 개별 실패 뒤 계속 실행하고 Ctrl-C 시 취소·부분 결과 저장을 조정한다.
+- 결과: UUID별 본문·헤더·로그 및 Excel 파일 링크. 정상 수신한 유효 JSON은 pretty 저장하며 JMX 본문은 내보내기 시점의 고정 snapshot이다.
+
+### 장점과 개선 후보
+
+| 구분 | 코드에서 확인한 상태 | 개선 방향 |
+|---|---|---|
+| 공통 로직 | CLI/UI가 검증·전송 경로를 재사용하고 SwingWorker로 네트워크 작업을 수행한다. | 기능 추가 시 공통 경로를 유지한다. |
+| 입력·파일 보호 | 타입·중복 키·헤더·curl 인수 검증, staging 저장 및 결과 Excel atomic move 시도와 fallback이 있다. | 기존 계약을 유지하며 오류 경로를 확장한다. |
+| 장기 반복 메모리 | BatchExecutor가 저장 생략에서도 모든 TransactionResult를 ArrayList에 보관하고 완료 시 List.copyOf를 만든다. 저장 모드는 XSSFWorkbook에도 모든 행을 구성한다. | 집계 전용 경로, 보관 상한·보고서 분할 또는 스트리밍 workbook 검토. 메모리 부족을 재현한 것은 아니다. |
+| 대용량 본문 | PayloadGenerator는 byte[] 및 텍스트 생성용 char[]/String을 사용한다. 64 MiB 상한은 있지만 생성·압축 중 메모리는 본문 크기보다 커질 수 있다. | 최대 크기 조건을 측정한 뒤 스트리밍 생성·전송 검토. |
+| 인증 정보 보관 | CurlRunner가 명령 인수 JSON·verbose 헤더를 기록하고 요청 헤더를 파일/Excel에도 저장한다. JMX도 인증 설정을 포함한다. | 공유·보관 요구에 맞는 선택적 마스킹 검토. |
+| 응답 원본 | JsonResponse가 유효 JSON 파일을 pretty 형식으로 교체한다. 원본 바이트 비교용 응답 파일은 별도로 없다. | 바이트 검증 요구가 있으면 raw 응답과 표시용 파일 분리. |
+| chunk 크기 | stdin에 설정 블록 크기로 write/flush하지만 HTTP chunk 경계는 curl과 파이프 버퍼링에도 영향을 받는다. | 정확한 wire 크기가 필요하면 수신 측에서 chunk 프레임 직접 측정. |
+| 자동 검증 | 실제 curl/로컬 서버 및 headless Swing 테스트가 있다. 저장소에 CI workflow와 Maven Wrapper는 없다. | CI 및 OS별 curl/Brotli 실행 검증 추가. |
+
+### 이번 분석의 검증 결과
+
+Java 21.0.3 / Maven 3.9.11 / Windows x64에서 `mvn -B test`를 실행하여 **265개 테스트, 실패 0, 오류 0, 생략 0, BUILD SUCCESS**를 확인했다. 실제 curl 전송, 설정 변환, timeout·종료 처리, 결과 저장, JMX 생성 및 Swing 컴포넌트 테스트가 포함된다. 로그는 `%TEMP%/curlmock-analysis-test.log`에 있다.
+
+JAR 패키징, 실제 데스크톱 모달 조작, 외부 JMeter와 다른 OS 실행은 이번에 다시 검증하지 않았다. 소스 동작은 수정하지 않았으며 분석 결과와 현재 전체 샘플 수의 문서 불일치만 반영했다.
+
+## TLS / mTLS 요청 타입 (2026-10-13)
+
+`RequestType`은 TLS/MTLS다. `PayloadType.requestType`은 선택적이며 기존 생성자와 타입 생략 HTTP 설정을 유지한다. 명시적인 TLS는 HTTPS `endpointUrl`, MTLS는 HTTPS `mtlsEndpointUrl`을 요구한다. 타입을 생략한 HTTPS는 일반 TLS다. 신규 기본 샘플은 `https://localhost:8443`을 사용하며 기본 120개 본문/전송/크기 조합 수는 유지한다. `requestType: TLS,MTLS`는 CT→TE→PS→타입 순서로 두 요청을 확장한다. 타입은 목록 표시/검색에 포함하고 서버 요청 경로에는 추가하지 않는다.
+
+`Certificates`는 `caCertificate`, `clientCertificate`, `clientKey`, `certificateType`(PEM 기본/P12), `keyPassword`를 저장하는 불변 record다. CA는 서버 검증에 공통 적용하지만 클라이언트 인증서·키·비밀번호는 MTLS에만 전송한다. PEM MTLS는 인증서와 개인키 파일을 요구하고 P12는 별도 개인키를 거부한다. 경로·비밀번호의 제어문자, 잘못된 타입 및 문자열 외 설정값을 거부한다. 설정 읽기는 파일 위치 기준으로 인증서 경로를 정규화하며 변환은 절대 경로를 유지한다. 구조 검증과 실행 파일 검증을 분리하여 실제 인증서 파일 없이 샘플/변환을 가능하게 한다. BatchExecutor는 결과 디렉토리 생성 전에 실행에 필요한 인증서 파일을 검사한다.
+
+Excel Settings에 `mtlsEndpointUrl`과 `certificates` JSON 객체를 추가하고 PayloadTypes에는 선택적 `requestType` 열을 추가했다. 기존 시트 형식·timeout·headers 열 위치는 유지한다. 설정 복사와 preset 크기 재정의 시 요청 타입 및 인증서를 보존한다. RuntimeSummary는 `Request type`, `MTLS endpoint URL`, `Certificates` 편집 행과 실제 목적지 URL을 표시하고 단건·검색·전체 실행 snapshot에도 설정을 유지한다. UI 신규 인증서 경로는 실행 작업 디렉토리 기준이므로 절대 경로를 권장한다.
+
+CurlRunner는 ClientConfig.requestUrl을 통해 목적지를 선택하고 `--cacert`, MTLS의 `--cert-type`/`--cert`/`--key`/`--pass`를 구성한다. 타입 생략을 포함한 HTTPS 요청은 `--proto =https` 및 `--proto-redir =https`로 HTTP 전환을 제한한다. CurlArguments는 구조화된 TLS 설정과 충돌하는 인증서 인수를 거부하고 명령 로그의 `--pass` 값을 가린다. 설정 파일과 편집 그리드에는 비밀번호가 남는다. 별도 의존성을 추가하지 않으며 PEM/P12 지원은 사용 중인 curl TLS backend에 따른다. Windows Schannel은 P12를 사용한다([curl 문서](https://curl.se/docs/manpage.html#--cert-type)).
+
+JmxExporter는 인증서 설정 또는 MTLS가 있으면 인증을 생략한 계획을 생성하지 않고 오류로 거부한다. 인증서 설정이 없는 TLS는 기존 HTTPS JMX 경로를 사용한다. 샘플은 `samples/config-mtls.yml`이며 인증서 자체는 저장소에 포함하지 않는다.
+
+실제 mTLS 통합 테스트는 JDK keytool로 생성한 RSA/P12 인증서와 클라이언트 인증을 요구하는 로컬 HTTPS 서버를 사용한다. Windows Schannel/Java 조합의 TLS 1.3 mutual-auth 협상 실패를 관찰하여 테스트 서버는 TLS 1.2로 제한했다. 프로그램의 기본 협상 버전은 바꾸지 않았으며 필요하면 기존 `curlArguments: ["--tls-max", "1.2"]`를 사용할 수 있다. 이 환경의 EC/P12 fixture도 Schannel 자격 증명 획득 오류로 실패하여 최종 테스트는 RSA 인증서로 검증한다. PEM은 설정·변환·인수 구성만 검증했으며 다른 backend의 실제 PEM 연결과 TLS 1.3 mTLS 성공은 확인하지 않았다.
+
+최종 `mvn -B clean verify`는 285개 테스트의 실패·오류·생략 0건과 JAR 빌드 성공을 확인했다. 설정 테스트 14개, 실제 HTTPS/mTLS 통합 테스트 6개 및 기존 265개가 포함된다. 최종 로그는 `verification/tls-mtls-final-verify.log`이며 자세한 검증 범위는 [검증 문서](docs/verification.md)에 기록한다.
 
 ## BIN payload (2026-10-10)
 
@@ -103,11 +153,11 @@ Jackson 스트리밍 parser/generator로 임시 파일에 작성하며 숫자는
 
 ### 전체 조합 샘플 설정
 
-`samples/config-all-cases.yml`과 `samples/config-all-cases.xlsx`는 4개 Content-Type(json/xml/form/multipart), 8개 Transfer-Encoding(NA/GZ/CSB/CCB/CLB/DEFLATE/COMPRESS/BR), 3개 기본 Payload 크기(SM/CM/LG)의 96개 조합을 각각 한 번 포함한다. YAML과 Excel의 요청 순서 및 설정값은 동일하다. 메서드는 POST, endpoint는 `http://localhost:8080`, 두 timeout은 3초, 출력은 설정파일 위치 기준 `results`다. 직접 지정하는 임의 크기와 메서드·timeout의 변형은 이 기본 조합에 포함하지 않는다.
+`samples/config-all-cases.yml`과 `samples/config-all-cases.xlsx`는 5개 Content-Type(json/xml/form/multipart/bin), 8개 Transfer-Encoding(NA/GZ/CSB/CCB/CLB/DEFLATE/COMPRESS/BR), 3개 기본 Payload 크기(SM/CM/LG)의 120개 조합을 각각 한 번 포함한다. YAML과 Excel의 요청 순서 및 설정값은 동일하다. 메서드는 POST, endpoint는 `http://localhost:8080`, 두 timeout은 3초, 출력은 설정파일 위치 기준 `results`다. 직접 지정하는 임의 크기와 메서드·timeout의 변형은 이 기본 조합에 포함하지 않는다.
 
 `java -jar target/curl-http-mock-client.jar --config samples/config-all-cases.yml`로 전체 실행하거나 `--application` 옵션으로 화면을 열고 `전체실행`을 누른다. 실제 서버 주소는 실행 전에 파일에서 지정하거나 application의 Endpoint URL을 업데이트한다. 샘플 생성은 요청을 전송하지 않는다.
 
-`TransferEncoding`의 기존 NA/GZ/CSB/CCB/CLB에 DEFLATE, COMPRESS, BR을 추가했다. 설정과 application 그리드 모두 지원한다. 설정 입력은 대소문자를 구분하지 않으며 Excel/YAML 출력과 요청 경로는 대문자 enum 이름을 유지한다. 새 생성 샘플은 4 CT × 8 TE × 3 PS = 96건이다. 기존 설정파일의 케이스는 파일에 적힌 항목만 사용한다.
+`TransferEncoding`의 기존 NA/GZ/CSB/CCB/CLB에 DEFLATE, COMPRESS, BR을 추가했다. 설정과 application 그리드 모두 지원한다. 설정 입력은 대소문자를 구분하지 않으며 Excel/YAML 출력과 요청 경로는 대문자 enum 이름을 유지한다. 새 생성 샘플은 BIN을 포함한 5 CT × 8 TE × 3 PS = 120건이다. 기존 설정파일의 케이스는 파일에 적힌 항목만 사용한다.
 
 GZ/DEFLATE/COMPRESS/BR은 `Content-Encoding: gzip/deflate/compress/br`과 압축 본문의 Content-Length로 전송한다. CSB/CCB/CLB의 HTTP chunked 처리와 구분한다. DEFLATE는 zlib wrapper를 포함한 `DeflaterOutputStream`, COMPRESS는 Unix `.Z` LZW(비블록 모드, 코드 폭 9~16비트), BR은 [Brotli4j 1.23.0](https://github.com/hyperxpro/Brotli4j)의 Brotli encoder(quality 4)를 사용한다. `LzwOutputStream`은 코드 폭 변경 시 8개 코드 그룹 정렬과 사전 포화 시 기존 사전 유지를 처리한다. Commons Compress의 독립 `.Z` decoder로 결과를 검증한다.
 
@@ -197,6 +247,12 @@ java -jar target/curl-http-mock-client.jar --config samples/config.yml --loop 3 
 `RuntimeSummary`의 `Payload sizes`는 전체 요청에 적용되는 편집 행이다. JSON 객체로 입력하고 항목 삭제 시 기본값으로 복원한다. 자동 계산 `Payload bytes`는 해석된 크기를 표시한다. YAML↔Excel 변환과 원본 파일을 바꾸지 않는 화면 편집도 지원한다. `PayloadSizesConfigTest`는 각 본문 형식의 정확한 크기, 기본값과 직접 크기 유지, 설정 간 격리, 변환·복사·화면 편집, 잘못된 입력, 실제 curl 단건/선택/전체/저장 생략 전송을 검증한다.
 
 ## 구조 변경 내역
+
+- 2026-10-14: TLS/mTLS 변경 푸시 전에 기술문서를 갱신하고 `mvn -B clean verify`를 다시 실행하여 285개 테스트의 실패·오류·생략 0건 및 JAR 빌드 성공을 확인했다. 로그는 `verification/tls-mtls-push-20261014.log`다. 소스·샘플·문서를 develop 브랜치에 반영하며 생성된 인증서·JAR·검증 산출물은 Git 추적에서 제외한다.
+
+- 2026-10-13: RequestType/Certificates와 요청별 TLS/MTLS, 별도 mTLS URL, 인증서 경로 해석·검증·전송을 추가했다. YAML/Excel·Swing snapshot·검색에 반영하고 개인키 비밀번호 로그 마스킹 및 JMX 미지원 범위의 명시적 오류를 추가했다.
+
+- 2026-10-13: 프로젝트 분석과 테스트 265개 통과 결과를 기록하고 현재 전체 샘플 설명을 BIN 포함 120개 조합으로 정정했다. 소스 및 프로젝트 구조 변경은 없다.
 
 - 2026-10-09: delay 옵션 푸시 전 기술문서를 갱신하고 Java 21 Maven verify를 재실행하여 전체 258개 테스트의 실패·오류·생략 0건과 JAR 빌드 성공을 확인했다. 로그는 `verification/delay-push-verify.log`다.
 

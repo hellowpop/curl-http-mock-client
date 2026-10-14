@@ -20,6 +20,40 @@ java -jar target/curl-http-mock-client.jar --help
 
 빌드 결과는 모든 Java 의존성을 포함하는 `target/curl-http-mock-client.jar`입니다. curl 자체는 JAR에 포함되지 않습니다. Maven 테스트는 실제 curl과 로컬 HTTP 서버를 사용합니다.
 
+## TLS / mTLS 요청
+
+`payloadTypes[].requestType`에 `TLS` 또는 `MTLS`를 지정합니다. TLS는 `endpointUrl`의 HTTPS 주소로 서버 인증 연결을 하고, MTLS는 `mtlsEndpointUrl`에 설정한 클라이언트 인증서로 요청합니다. 두 명시적 타입 모두 HTTPS URL을 요구합니다. 새 샘플의 기본 주소는 `https://localhost:8443`입니다. 기존 설정에서 타입을 생략하면 `endpointUrl`을 그대로 사용하여 기존 HTTP 테스트도 유지됩니다. HTTPS에서 타입을 생략하면 일반 TLS 연결을 사용합니다.
+
+```yaml
+endpointUrl: https://localhost:8443
+mtlsEndpointUrl: https://localhost:9443
+certificates:
+  caCertificate: certs/ca.pem       # 선택: 서버 인증서 검증용 CA
+  clientCertificate: certs/client.p12
+  certificateType: P12            # PEM 또는 P12, 기본 PEM
+  keyPassword: change-me          # 선택: 개인키/P12 비밀번호
+payloadTypes:
+  - contentType: json
+    transferEncoding: NA
+    payloadSize: SM
+    requestType: TLS,MTLS
+```
+
+PEM은 `clientCertificate: certs/client.pem`, `clientKey: certs/client.key`, `certificateType: PEM`으로 지정합니다. P12는 인증서와 개인키를 하나의 파일에 포함하므로 `clientKey`를 생략합니다. Windows Schannel curl은 P12를 사용하고, PEM 인증서·키는 이를 지원하는 curl TLS backend를 사용하세요. backend별 형식은 [curl 인증서 옵션 문서](https://curl.se/docs/manpage.html#--cert-type)를 참고하세요. CA를 생략하면 curl의 기본 신뢰 저장소를 사용하며 인증서 검증을 자동으로 끄지 않습니다.
+
+인증서 상대 경로는 설정 파일 위치 기준으로 해석하고 YAML↔Excel 변환 시 절대 경로로 보존합니다. MTLS URL/인증서 또는 PEM 개인키가 누락되면 설정 오류, 실행에 필요한 파일이 없으면 요청을 보내기 전 실행 오류가 발생합니다. 인증서 파일 없이도 설정 생성·변환은 가능합니다. TLS는 공통 인증서 설정이 있어도 클라이언트 인증서를 보내지 않습니다. `requestType` 콤마 목록은 CT→TE→PS→타입 순서로 확장하며 요청 경로 `/CT_…/TE_…/PS_…`는 유지합니다.
+
+Excel `Settings`에 `mtlsEndpointUrl`과 JSON 객체인 `certificates`를 입력하고, `PayloadTypes`의 선택적 `requestType` 열에 타입을 입력합니다. Swing의 `Request type`, `MTLS endpoint URL`, `Certificates` 행에서 현재 실행 설정을 편집하며 검색어 `mtls`로 mTLS 케이스를 선택할 수 있습니다. UI에서 새 인증서 경로를 입력할 때는 절대 경로를 권장합니다.
+
+명시적 타입 또는 인증서 설정을 사용하면 curl 인수의 `--cert`/`-E`/`--cert-type`/`--key`/`--key-type`/`--pass`/`--cacert`/`--capath` 재정의를 거부합니다. HTTPS 요청의 HTTP 리디렉션도 거부합니다. 개인키 비밀번호는 curl 명령 로그에 `[redacted]`로 표시하지만 설정 파일과 화면의 Certificates 편집값에는 포함됩니다. 현재 JMX는 MTLS와 인증서 설정을 지원하지 않아 내보내기를 명시적으로 거부합니다. 인증서 설정이 없는 TLS JMX는 지원합니다.
+
+예시: [samples/config-mtls.yml](samples/config-mtls.yml). URL·인증서 경로를 변경한 뒤 실행합니다.
+
+```powershell
+java -jar target/curl-http-mock-client.jar --config samples/config-mtls.yml
+java -jar target/curl-http-mock-client.jar --application --config samples/config-mtls.yml
+```
+
 ## LZW 스트림 API
 
 `dev.curlmock.LzwOutputStream`과 `dev.curlmock.LzwInputStream`으로 Unix compress `.Z` 데이터를 순차 압축·복원할 수 있습니다. COMPRESS 요청도 같은 출력 스트림을 사용합니다. 출력은 비블록 모드의 9~16비트 LZW이며 입력은 블록 모드와 CLEAR 코드도 지원합니다. raw LZW 또는 GIF/TIFF 형식과는 구분됩니다.
@@ -51,7 +85,7 @@ java -jar target/curl-http-mock-client.jar --excel-to-yml sample.xlsx --output c
 java -jar target/curl-http-mock-client.jar --yml-to-excel sample.yml --output converted.xlsx
 ```
 
-모드는 한 번에 하나만 지정합니다. 기존 샘플/변환 파일을 덮어쓰려면 `--overwrite`를 명시합니다. 실제 endpoint에 맞게 `endpointUrl`을 수정한 뒤 실행하세요. 새로 생성하는 샘플은 localhost:8080의 전체 120개 조합입니다. 기존 설정파일은 파일에 적힌 요청 목록을 사용합니다. 이 프로그램은 서버를 시작하지 않습니다.
+모드는 한 번에 하나만 지정합니다. 기존 샘플/변환 파일을 덮어쓰려면 `--overwrite`를 명시합니다. 실제 endpoint에 맞게 `endpointUrl`을 수정한 뒤 실행하세요. 새로 생성하는 샘플은 `https://localhost:8443`의 전체 120개 조합입니다. 기존 설정파일은 파일에 적힌 요청 목록을 사용합니다. 이 프로그램은 서버를 시작하지 않습니다.
 
 `--loop N`은 설정의 전체 요청 목록을 순서대로 N회 반복합니다. 기본값은 1회이며 N은 1 이상의 정수입니다. 요청이 120건이고 `--loop 3`이면 총 360건을 실행합니다. 각 요청마다 새 UUID와 payload를 생성하며 모든 반복 결과를 하나의 Excel 파일과 결과 디렉토리에 저장합니다.
 

@@ -136,7 +136,7 @@ class ConfigFilesTest {
             row.getCell(2).setCellValue("CM,SM");
             try (var out = Files.newOutputStream(excel)) { book.write(out); }
         }
-        var expected = read("endpointUrl: http://localhost:8080\npayloadTypes:\n  - contentType: json, xml\n    transferEncoding: GZ,CSB\n    payloadSize: CM,SM\n");
+        var expected = read("endpointUrl: https://localhost:8443\npayloadTypes:\n  - contentType: json, xml\n    transferEncoding: GZ,CSB\n    payloadSize: CM,SM\n");
         assertEquals(expected, ConfigFiles.read(excel));
         Path yaml = temp.resolve("converted/multi.yml");
         ConfigFiles.convert(excel, yaml, false);
