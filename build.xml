@@ -1,0 +1,76 @@
+<project name="apim-gw" basedir=".">
+    <!-- 1. 시스템 환경변수 로드 JMETER_HOME -->
+    <property environment="env" />
+    <property name="c-base" value="C:\Develop\Git\runtime-context"/>
+    <property name="mvn.cmd" value="${env.MVN_HOME}\bin\mvn.cmd"/>
+    <property name="jmeter" value="${env.JMETER_HOME}\bin\jmeter.bat"/>
+    <property name="settings.path" value="${c-base}\.mvn\settings.xml"/>
+    <property name="repo.path" value="${c-base}\.mvn\.repository"/>
+    <property name="repo.option" value="-Dmaven.repo.local=${repo.path}"/>
+
+    <!-- Ant-Contrib 태스크 정의 -->
+    <taskdef resource="net/sf/antcontrib/antcontrib.properties">
+        <classpath>
+            <pathelement location="${c-base}/material/ant-contrib-0.6.jar"/>
+        </classpath>
+    </taskdef>
+
+    <!--  ################# main build process  ########################## -->
+    <target name="pkg">
+        <echo message="call package"/>
+        <exec executable="${mvn.cmd}" dir=".">
+            <arg value="-s"/>
+            <arg value="${settings.path}"/>
+            <arg value="${repo.option}"/>
+            <arg value="-DskipTests"/>
+            <arg value="clean"/>
+            <arg value="package"/>
+        </exec>
+        <copy file="samples/config-echo.yml" todir="target" overwrite="true"/>
+        <copy file="samples/config-gw.yml" todir="target" overwrite="true"/>
+    </target>
+    <target name="exec-cli">
+        <exec executable="java" dir=".">
+            <arg value="-Duser.country=US"/>
+            <arg value="-Duser.language=en"/>
+            <arg value="-Djava.io.tmpdir=./target"/>
+            <arg value="-jar"/>
+            <arg value="target/curl-http-mock-client.jar"/>
+            <arg value="--config"/>
+            <arg value="target/config-execute.yml"/>
+        </exec>
+    </target>
+    <target name="exec-app">
+        <exec executable="java" dir=".">
+            <arg value="-Duser.country=US"/>
+            <arg value="-Duser.language=en"/>
+            <arg value="-Djava.io.tmpdir=./target"/>
+            <arg value="-jar"/>
+            <arg value="target/curl-http-mock-client.jar"/>
+            <arg value="--config"/>
+            <arg value="target/config-gw.yml"/>
+            <arg value="--application"/>
+        </exec>
+    </target>
+    <target name="make-jmx">
+        <exec executable="java" dir=".">
+            <arg value="-Duser.country=US"/>
+            <arg value="-Duser.language=en"/>
+            <arg value="-Djava.io.tmpdir=./target"/>
+            <arg value="-jar"/>
+            <arg value="target/curl-http-mock-client.jar"/>
+            <arg value="--config"/>
+            <arg value="target/config-execute.yml"/>
+            <arg value="--export-jmx"/>
+            <arg value="target/config-execute.jmx"/>
+            <arg value="--overwrite"/>
+        </exec>
+    </target>
+    <target name="open-jmx">
+        <exec executable="${jmeter}" dir=".">
+            <arg value="-t"/>
+            <arg value="target/config-execute.jmx"/>
+        </exec>
+    </target>
+    <target name="pkg-and-run" depends="pkg,exec-cli"/>
+</project>

@@ -1,0 +1,19 @@
+---
+endpointUrl: "http://localhost:9909/fn/fn/v1"
+method: "POST"
+curlExecutable: "curl"
+connectTimeoutSeconds: 3
+requestTimeoutSeconds: 3
+outputDirectory: "results"
+payloadTypes:
+  - contentType: "json,xml,form,multipart"
+    transferEncoding: "NA,GZ,CSB,CCB,CLB,DEFLATE,COMPRESS,BR"
+    payloadSize: "SM,CM,LG"
+  - contentType: "json,xml,form,multipart"
+    transferEncoding: "NA,GZ,CSB,CCB,CLB,DEFLATE,COMPRESS,BR"
+    payloadSize: "1M,2M,5M,10M"
+    connectTimeoutSeconds: 3
+    requestTimeoutSeconds: 30
+    headers:
+      x-transaction-timeout: "30000"
+curlArguments: []
