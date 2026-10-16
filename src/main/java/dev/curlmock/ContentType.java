@@ -6,7 +6,8 @@ import java.util.Locale;
 
 public enum ContentType {
     JSON("json", "application/json"), XML("xml", "application/xml"),
-    FORM("form", "application/x-www-form-urlencoded"), MULTIPART("multipart", "multipart/form-data");
+    FORM("form", "application/x-www-form-urlencoded"), MULTIPART("multipart", "multipart/form-data"),
+    BIN("bin", "application/octet-stream");
 
     private final String token;
     private final String mime;
@@ -20,6 +21,7 @@ public enum ContentType {
             case "xml", "application/xml", "text/xml" -> XML;
             case "form", "form-urlencoded", "form_url_encode", "application/x-www-form-urlencoded" -> FORM;
             case "multipart", "multipart_form", "multipart/form-data" -> MULTIPART;
+            case "bin", "application/octet-stream" -> BIN;
             default -> throw new IllegalArgumentException("Unknown contentType: " + value);
         };
     }

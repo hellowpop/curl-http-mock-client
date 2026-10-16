@@ -1,5 +1,17 @@
 # 변경 이력
 
+## 2026-10-13 — TLS / mTLS 요청 타입
+
+- 요청별 `requestType: TLS|MTLS`와 콤마 목록, `mtlsEndpointUrl`, PEM/P12 `certificates` 설정을 추가했습니다. TLS는 일반 HTTPS, MTLS는 별도 URL과 클라이언트 인증서로 전송합니다.
+- 새 샘플의 기본 URL을 HTTPS로 변경하고 기존 타입 생략 HTTP 설정·생성자·Excel 열을 유지합니다. 인증서 경로는 설정 파일 기준으로 해석하며 변환·설정 복사·단건·선택·전체·저장 생략 실행에 보존합니다.
+- Swing 타입/URL/인증서 편집 및 검색, 인증서 인수 충돌 검사, HTTPS 제한과 개인키 비밀번호 로그 마스킹을 추가했습니다. MTLS와 인증서 설정은 현재 JMX 내보내기에서 오류로 거부합니다.
+- `samples/config-mtls.yml`과 설정·변환·UI 및 실제 클라이언트 인증 HTTPS 통합 테스트를 추가했습니다.
+
+## 2026-10-10 — BIN payload
+
+- `BIN` payload 타입을 추가했습니다. 지정한 크기의 무작위 바이너리 본문을 `Content-Type: application/octet-stream`으로 전송하며 경로는 `CT_bin`입니다.
+- YAML·Excel·화면 선택, 압축·chunked 전송 및 JMX 내보내기를 지원합니다. 기본 샘플을 120개 조합으로 확장했습니다.
+
 ## 2026-10-09 — 유닛 간 실행 간격
 
 - CLI `--delay MS`로 각 유닛 사이의 대기를 밀리초 단위로 지정합니다. 기본값은 0이며 `--loop` 반복 경계와 `--skip-result`에도 적용합니다. 첫 실행 전·마지막 실행 후에는 대기하지 않습니다.

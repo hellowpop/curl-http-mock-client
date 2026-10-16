@@ -27,6 +27,7 @@ public final class BatchExecutor {
 
     public RunResult run(ClientConfig config, java.util.function.Consumer<String> progress, int loops, boolean skipResult, long delayMs) throws IOException {
         config.validate();
+        config.validateExecutionFiles();
         if (loops < 1) throw new IllegalArgumentException("loops must be a positive integer");
         if (delayMs < 0) throw new IllegalArgumentException("delay must be non-negative milliseconds");
         long total = (long) loops * config.payloadTypes().size();

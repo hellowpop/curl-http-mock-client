@@ -18,6 +18,22 @@ import static org.junit.jupiter.api.Assertions.*;
 class JmxExportTest {
     @TempDir Path temp;
 
+    @Test void exportsBinaryBodyWithOctetStreamHeader() throws Exception {
+        Path output = temp.resolve("binary.jmx");
+        var config = new ClientConfig("http://localhost:8080", "POST", "missing-curl", 2, 4,
+                "unused", List.of(new PayloadType(ContentType.parse("BIN"), TransferEncoding.GZ, PayloadSize.SM)));
+        JmxExporter.write(output, config, false);
+        var doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(output.toFile());
+        var sampler = (org.w3c.dom.Element) doc.getElementsByTagName("JSR223Sampler").item(0);
+        var data = new ObjectMapper().readTree(Base64.getDecoder().decode(property(sampler, "parameters")));
+        assertEquals("http://localhost:8080/CT_bin/TE_GZ/PS_SM", data.get("url").asText());
+        assertEquals("application/octet-stream", data.get("headers").get("Content-Type").asText());
+        assertEquals("gzip", data.get("headers").get("Content-Encoding").asText());
+        byte[] body = new GZIPInputStream(new java.io.ByteArrayInputStream(
+                Base64.getDecoder().decode(data.get("body").asText()))).readAllBytes();
+        assertEquals(2048, body.length);
+    }
+
     @Test void exportsOrderedRequestsWithoutCallingCurlOrCreatingResults() throws Exception {
         var config = new ClientConfig("https://localhost:8443/api/", "PATCH", "missing-curl", 2, 4,
                 temp.resolve("results").toString(), List.of(

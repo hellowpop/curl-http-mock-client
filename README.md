@@ -20,6 +20,40 @@ java -jar target/curl-http-mock-client.jar --help
 
 빌드 결과는 모든 Java 의존성을 포함하는 `target/curl-http-mock-client.jar`입니다. curl 자체는 JAR에 포함되지 않습니다. Maven 테스트는 실제 curl과 로컬 HTTP 서버를 사용합니다.
 
+## TLS / mTLS 요청
+
+`payloadTypes[].requestType`에 `TLS` 또는 `MTLS`를 지정합니다. TLS는 `endpointUrl`의 HTTPS 주소로 서버 인증 연결을 하고, MTLS는 `mtlsEndpointUrl`에 설정한 클라이언트 인증서로 요청합니다. 두 명시적 타입 모두 HTTPS URL을 요구합니다. 새 샘플의 기본 주소는 `https://localhost:8443`입니다. 기존 설정에서 타입을 생략하면 `endpointUrl`을 그대로 사용하여 기존 HTTP 테스트도 유지됩니다. HTTPS에서 타입을 생략하면 일반 TLS 연결을 사용합니다.
+
+```yaml
+endpointUrl: https://localhost:8443
+mtlsEndpointUrl: https://localhost:9443
+certificates:
+  caCertificate: certs/ca.pem       # 선택: 서버 인증서 검증용 CA
+  clientCertificate: certs/client.p12
+  certificateType: P12            # PEM 또는 P12, 기본 PEM
+  keyPassword: change-me          # 선택: 개인키/P12 비밀번호
+payloadTypes:
+  - contentType: json
+    transferEncoding: NA
+    payloadSize: SM
+    requestType: TLS,MTLS
+```
+
+PEM은 `clientCertificate: certs/client.pem`, `clientKey: certs/client.key`, `certificateType: PEM`으로 지정합니다. P12는 인증서와 개인키를 하나의 파일에 포함하므로 `clientKey`를 생략합니다. Windows Schannel curl은 P12를 사용하고, PEM 인증서·키는 이를 지원하는 curl TLS backend를 사용하세요. backend별 형식은 [curl 인증서 옵션 문서](https://curl.se/docs/manpage.html#--cert-type)를 참고하세요. CA를 생략하면 curl의 기본 신뢰 저장소를 사용하며 인증서 검증을 자동으로 끄지 않습니다.
+
+인증서 상대 경로는 설정 파일 위치 기준으로 해석하고 YAML↔Excel 변환 시 절대 경로로 보존합니다. MTLS URL/인증서 또는 PEM 개인키가 누락되면 설정 오류, 실행에 필요한 파일이 없으면 요청을 보내기 전 실행 오류가 발생합니다. 인증서 파일 없이도 설정 생성·변환은 가능합니다. TLS는 공통 인증서 설정이 있어도 클라이언트 인증서를 보내지 않습니다. `requestType` 콤마 목록은 CT→TE→PS→타입 순서로 확장하며 요청 경로 `/CT_…/TE_…/PS_…`는 유지합니다.
+
+Excel `Settings`에 `mtlsEndpointUrl`과 JSON 객체인 `certificates`를 입력하고, `PayloadTypes`의 선택적 `requestType` 열에 타입을 입력합니다. Swing의 `Request type`, `MTLS endpoint URL`, `Certificates` 행에서 현재 실행 설정을 편집하며 검색어 `mtls`로 mTLS 케이스를 선택할 수 있습니다. UI에서 새 인증서 경로를 입력할 때는 절대 경로를 권장합니다.
+
+명시적 타입 또는 인증서 설정을 사용하면 curl 인수의 `--cert`/`-E`/`--cert-type`/`--key`/`--key-type`/`--pass`/`--cacert`/`--capath` 재정의를 거부합니다. HTTPS 요청의 HTTP 리디렉션도 거부합니다. 개인키 비밀번호는 curl 명령 로그에 `[redacted]`로 표시하지만 설정 파일과 화면의 Certificates 편집값에는 포함됩니다. 현재 JMX는 MTLS와 인증서 설정을 지원하지 않아 내보내기를 명시적으로 거부합니다. 인증서 설정이 없는 TLS JMX는 지원합니다.
+
+예시: [samples/config-mtls.yml](samples/config-mtls.yml). URL·인증서 경로를 변경한 뒤 실행합니다.
+
+```powershell
+java -jar target/curl-http-mock-client.jar --config samples/config-mtls.yml
+java -jar target/curl-http-mock-client.jar --application --config samples/config-mtls.yml
+```
+
 ## LZW 스트림 API
 
 `dev.curlmock.LzwOutputStream`과 `dev.curlmock.LzwInputStream`으로 Unix compress `.Z` 데이터를 순차 압축·복원할 수 있습니다. COMPRESS 요청도 같은 출력 스트림을 사용합니다. 출력은 비블록 모드의 9~16비트 LZW이며 입력은 블록 모드와 CLEAR 코드도 지원합니다. raw LZW 또는 GIF/TIFF 형식과는 구분됩니다.
@@ -51,9 +85,9 @@ java -jar target/curl-http-mock-client.jar --excel-to-yml sample.xlsx --output c
 java -jar target/curl-http-mock-client.jar --yml-to-excel sample.yml --output converted.xlsx
 ```
 
-모드는 한 번에 하나만 지정합니다. 기존 샘플/변환 파일을 덮어쓰려면 `--overwrite`를 명시합니다. 실제 endpoint에 맞게 `endpointUrl`을 수정한 뒤 실행하세요. 새로 생성하는 샘플은 localhost:8080의 전체 96개 조합입니다. 기존 설정파일은 파일에 적힌 요청 목록을 사용합니다. 이 프로그램은 서버를 시작하지 않습니다.
+모드는 한 번에 하나만 지정합니다. 기존 샘플/변환 파일을 덮어쓰려면 `--overwrite`를 명시합니다. 실제 endpoint에 맞게 `endpointUrl`을 수정한 뒤 실행하세요. 새로 생성하는 샘플은 `https://localhost:8443`의 전체 120개 조합입니다. 기존 설정파일은 파일에 적힌 요청 목록을 사용합니다. 이 프로그램은 서버를 시작하지 않습니다.
 
-`--loop N`은 설정의 전체 요청 목록을 순서대로 N회 반복합니다. 기본값은 1회이며 N은 1 이상의 정수입니다. 요청이 96건이고 `--loop 3`이면 총 288건을 실행합니다. 각 요청마다 새 UUID와 payload를 생성하며 모든 반복 결과를 하나의 Excel 파일과 결과 디렉토리에 저장합니다.
+`--loop N`은 설정의 전체 요청 목록을 순서대로 N회 반복합니다. 기본값은 1회이며 N은 1 이상의 정수입니다. 요청이 120건이고 `--loop 3`이면 총 360건을 실행합니다. 각 요청마다 새 UUID와 payload를 생성하며 모든 반복 결과를 하나의 Excel 파일과 결과 디렉토리에 저장합니다.
 
 `--delay MS`는 각 유닛(확장된 요청 한 건)의 완료 후 다음 유닛 실행 전 대기 시간을 밀리초 단위로 지정합니다. 예: `--delay 10`은 유닛 사이에 10ms 대기합니다. 기본값은 0이며 0 이상의 정수를 받습니다. 첫 유닛 전과 마지막 유닛 후에는 대기하지 않으며, `--loop`의 반복 경계에도 적용합니다. `--skip-result`와 함께 사용할 수 있습니다. CLI `--config` 실행 전용이며 `--application`, 샘플 생성, 변환, JMX 내보내기와 함께 사용할 수 없습니다. 대기 중 중단하면 남은 실행을 취소하고 기본 저장 모드에서 완료된 결과를 저장합니다.
 
@@ -79,7 +113,7 @@ JMX 변환에서 지원하는 추가 curl 인수는 `--header`/`-H`, `--user-age
 
 ### Swing application mode
 
-전체 기본 조합 설정은 [YAML](samples/config-all-cases.yml) 또는 [Excel](samples/config-all-cases.xlsx)을 사용하세요. 4개 Content-Type × 8개 Transfer-Encoding × 3개 기본 크기(SM/CM/LG), 총 96건입니다. 기본 endpoint는 `http://localhost:8080`이며 실제 서버 주소로 변경한 뒤 실행합니다.
+전체 기본 조합 설정은 [YAML](samples/config-all-cases.yml) 또는 [Excel](samples/config-all-cases.xlsx)을 사용하세요. 5개 Content-Type × 8개 Transfer-Encoding × 3개 기본 크기(SM/CM/LG), 총 120건입니다. 기본 endpoint는 `http://localhost:8080`이며 실제 서버 주소로 변경한 뒤 실행합니다.
 
 ```powershell
 java -jar target/curl-http-mock-client.jar --config samples/config-all-cases.yml
@@ -250,6 +284,16 @@ java -jar target/curl-http-mock-client.jar --config samples/config.yml --curl-ar
 | xml | application/xml | CT_xml |
 | form | application/x-www-form-urlencoded | CT_form |
 | multipart | multipart/form-data; boundary=... | CT_multipart |
+| BIN (bin) | application/octet-stream | CT_bin |
+
+`contentType: BIN`은 `payloadSize`에 지정한 크기의 무작위 바이너리 바이트를 생성합니다. `bin` 또는 `application/octet-stream`도 입력할 수 있으며, 저장 토큰과 경로는 `bin`입니다. 기존 압축·chunked 전송과 JMX 내보내기를 동일하게 지원합니다.
+
+```yaml
+payloadTypes:
+  - contentType: BIN
+    transferEncoding: NA
+    payloadSize: SM
+```
 
 | TE 설정값 | 전송 방식 |
 |---|---|
@@ -349,7 +393,7 @@ JSON과 XML은 줄바꿈과 2칸 들여쓰기를 사용하는 pretty 형태로 �
 
 `ClientConfig`와 enum은 공통 모델, `ConfigFiles`/`ExcelConfigCodec`은 파일 입출력, `PayloadGenerator`는 본문 생성, `CurlRunner`는 프로세스 실행, `BatchExecutor`/`ResultWorkbook`은 결과 저장, `Main`은 CLI를 담당합니다.
 
-테스트는 12개 CT/PS 조합의 형식과 정확한 크기, 설정 왕복 변환과 오류, 실제 curl의 96개 CT/TE/PS 전송, gzip·deflate·compress·Brotli 복원, chunked 헤더, 바이너리 응답, timeout/연결 거부/HTTP 오류, 링크와 CLI 옵션을 검증합니다. 별도 JVM을 종료시키는 테스트로 첫 요청 중 중단과 완료 요청 후 중단의 결과 저장을 검증합니다.
+테스트는 12개 CT/PS 조합의 형식과 정확한 크기, 설정 왕복 변환과 오류, 실제 curl의 120개 CT/TE/PS 전송, gzip·deflate·compress·Brotli 복원, chunked 헤더, 바이너리 응답, timeout/연결 거부/HTTP 오류, 링크와 CLI 옵션을 검증합니다. 별도 JVM을 종료시키는 테스트로 첫 요청 중 중단과 완료 요청 후 중단의 결과 저장을 검증합니다.
 
 최신 검증은 **214개 테스트 통과**입니다. 반복 실행 순서·실패 집계, 8개 전송 방식의 저장 생략과 본문 복원, 옵션 검증·중단·curl 실행 실패를 포함합니다. LZW 스트림의 분할 I/O·외부 .Z 호환·finish/close, application 실행 요약의 메모리 편집과 입력 검증, curl 추가 인수, YAML·Excel 변환, 기본값/항목별 timeout, 기존 Excel 호환도 검증합니다. 이전 기능별 최종 JAR 검증 기록을 포함한 자세한 결과는 [검증 문서](docs/verification.md), 변경 이력은 [CHANGELOG](CHANGELOG.md), 구성과 구조 변경 내역은 [프로젝트 기술 문서](project.md)를 참고하세요.
 

@@ -31,7 +31,7 @@ class MainTest {
         Path excel = temp.resolve("sample.xlsx");
         assertEquals(0, execute("--sample-yml", yaml.toString()));
         assertEquals(0, execute("--sample-excel", excel.toString()));
-        assertEquals(96, ConfigFiles.read(yaml).payloadTypes().size());
+        assertEquals(120, ConfigFiles.read(yaml).payloadTypes().size());
         assertEquals(ConfigFiles.read(yaml), ConfigFiles.read(excel));
         Path converted = temp.resolve("converted.xlsx");
         assertEquals(0, execute("--yml-to-excel", yaml.toString(), "--output", converted.toString()));

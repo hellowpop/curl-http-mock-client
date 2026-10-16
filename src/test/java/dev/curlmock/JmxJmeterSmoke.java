@@ -64,7 +64,7 @@ public class JmxJmeterSmoke {
             for (var ct : ContentType.values()) for (var te : TransferEncoding.values()) types.add(new PayloadType(ct, te, PayloadSize.SM));
             run(root, "all", new ClientConfig(endpoint, "PATCH", "missing-curl", 2, 5, "unused", types,
                 List.of(), Map.of("X-Literal", "${literal} & value", "X-Unicode", "한글 čĊ & ${literal}")));
-            if (paths.size() != 32) throw new AssertionError("requests " + paths.size() + " " + failures);
+            if (paths.size() != 40) throw new AssertionError("requests " + paths.size() + " " + failures);
             String all = Files.readString(root.resolve("all.jtl"));
             if (all.lines().filter(line -> line.contains(",false,")).count() != 1) throw new AssertionError("HTTP failure result " + all);
             for (String method : List.of("POST", "PUT")) {
@@ -76,7 +76,7 @@ public class JmxJmeterSmoke {
             run(root, "timeout", new ClientConfig(endpoint.replace("/api", "/slow"), "POST", "missing-curl", 2, 1, "unused",
                 List.of(new PayloadType(ContentType.JSON, TransferEncoding.NA, PayloadSize.SM))));
             if (!Files.readString(root.resolve("timeout.jtl")).contains("TIMEOUT")) throw new AssertionError("deadline");
-            System.out.println("PASS: actual JMeter loaded and executed 32 CT/TE requests, POST/PUT chunked requests, HTTP failure continuation and total timeout.");
+            System.out.println("PASS: actual JMeter loaded and executed 40 CT/TE requests, POST/PUT chunked requests, HTTP failure continuation and total timeout.");
         } finally { server.stop(0); executor.shutdownNow(); }
     }
     static void run(Path root, String name, ClientConfig config) throws Exception {

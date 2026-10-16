@@ -35,7 +35,8 @@ public final class ConfigFiles {
         config.validate();
         Path resultDirectory = Path.of(config.outputDirectory());
         if (!resultDirectory.isAbsolute()) resultDirectory = path.getParent().resolve(resultDirectory);
-        return config.withOutputDirectory(resultDirectory.toAbsolutePath().normalize().toString());
+        return config.withOutputDirectory(resultDirectory.toAbsolutePath().normalize().toString())
+                .withCertificates(config.certificates().resolved(path.getParent()));
     }
 
     public static void write(Path path, ClientConfig config, boolean overwrite) throws IOException {
@@ -65,6 +66,17 @@ public final class ConfigFiles {
     }
 
     private static void validateInputTypes(JsonNode input) {
+        if (input.has("mtlsEndpointUrl") && !input.get("mtlsEndpointUrl").isNull() && !input.get("mtlsEndpointUrl").isTextual())
+            throw new IllegalArgumentException("mtlsEndpointUrl must be a string");
+        if (input.has("certificates")) {
+            var node = input.get("certificates");
+            if (!node.isObject()) throw new IllegalArgumentException("certificates must be an object");
+            node.fields().forEachRemaining(field -> {
+                if (!java.util.Set.of("caCertificate", "clientCertificate", "clientKey", "certificateType", "keyPassword").contains(field.getKey())
+                        || !field.getValue().isTextual())
+                    throw new IllegalArgumentException("Invalid certificate property: " + field.getKey());
+            });
+        }
         PayloadSizes.validateInput(input);
         RequestHeaders.validateInput(input);
         if (input.has("curlArguments")) {
@@ -86,6 +98,8 @@ public final class ConfigFiles {
         for (JsonNode entry : entries) {
             if (!entry.isObject()) throw new IllegalArgumentException("Each payloadTypes entry must be an object");
             RequestHeaders.validateInput(entry);
+            if (entry.has("requestType") && !entry.get("requestType").isTextual())
+                throw new IllegalArgumentException("requestType must be a string");
             for (String key : java.util.List.of("connectTimeoutSeconds", "requestTimeoutSeconds")) {
                 if (entry.has(key) && (!entry.get(key).isIntegralNumber() || !entry.get(key).canConvertToInt()))
                     throw new IllegalArgumentException("payloadTypes." + key + " must be an integer");

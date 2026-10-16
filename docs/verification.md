@@ -1,5 +1,23 @@
 # 검증 결과
 
+## TLS / mTLS 푸시 전 재검증 (2026-10-14)
+
+`mvn -B clean verify`를 다시 실행하여 **285개 테스트 / 실패 0 / 오류 0 / 생략 0**, **BUILD SUCCESS**와 JAR 생성을 확인했다. 실제 curl 기반 TLS 1.2 mTLS 인증과 기존 HTTP 호환성 검증을 포함하며 로그는 `verification/tls-mtls-push-20261014.log`다. README·project.md·CHANGELOG에 구현 및 검증 제약을 기록하고 develop 브랜치의 소스·테스트·설정 샘플과 함께 반영한다.
+
+## TLS / mTLS 요청 타입 (2026-10-13)
+
+Java 21.0.3 / Maven 3.9.11 / Windows x64에서 `mvn -B clean verify`를 실행하여 **285개 테스트 / 실패 0 / 오류 0 / 생략 0**, **BUILD SUCCESS** 및 shaded JAR 생성을 확인했다. 로그는 `verification/tls-mtls-final-verify.log`다.
+
+`TlsConfigTest` 14개는 TLS/MTLS 콤마 확장, HTTPS·mTLS 필수 설정 검증, PEM/P12 인수 구성, 설정파일 기준 인증서 상대 경로 해석과 다른 폴더의 YAML→Excel→YAML 왕복, 설정 복사·Swing 편집 및 타입 검색, 잘못된 인증서 속성·curl 인수 충돌·누락 파일의 사전 거부, mTLS URL 선택과 비밀번호 로그 마스킹, JMX 미지원 오류를 검증한다. 기존 265개 테스트도 유지한다.
+
+`MtlsIntegrationTest` 6개는 JDK keytool로 임시 CA·서버·클라이언트 RSA/P12 인증서를 만들고 실제 curl과 Java HTTPS 서버를 사용한다. 서버는 클라이언트 인증서를 요구하며 수신 측 peer principal을 확인한다. 저장/저장 생략의 mTLS 성공, TLS가 설정된 클라이언트 인증서를 보내지 않는 동작, 인증서 미제공·미신뢰 클라이언트의 거부, 명시적 TLS 버전 인수, SwingWorker 단건·검색 결과·전체 실행의 인증 정보 보존과 HTTPS→HTTP 리디렉션 차단을 검증했다. 리디렉션 테스트는 수정 전에 실패하는 것을 확인했다.
+
+이 환경의 Schannel curl 8.21.0과 Java 21.0.3 사이에서 RSA/P12 mTLS의 TLS 1.3 협상은 `SEC_E_INTERNAL_ERROR`로 실패했다. EC/P12 fixture도 `SEC_E_UNKNOWN_CREDENTIALS`로 실패하여 최종 테스트는 RSA/P12 및 TLS 1.2 서버를 사용한다. **프로그램의 TLS 협상 버전은 변경하지 않았다.** 다른 환경의 실제 PEM 연결과 TLS 1.3 mTLS 성공, 실제 데스크톱 모달 조작은 이번에 확인하지 않았다.
+
+별도 읽기 전용 리뷰에서 타입 생략 HTTPS의 HTTP redirect 제한 누락을 확인하여 회귀 테스트 후 보완했다. 재리뷰에서 추가 수정이 필요한 문제는 없었다. 요청 타입·URL·인증서 형식·운영 제약은 README와 project.md에 기록한다.
+
+빌드된 JAR로 HTTPS 기본 샘플 생성, `samples/config-mtls.yml`의 YAML→Excel→YAML 변환과 두 타입·mTLS URL 보존을 확인했다. 실제 인증서 파일 없이 변환이 가능하며, 해당 설정의 JMX 내보내기는 종료 코드 2로 거부하고 JMX 파일을 생성하지 않았다. 확인 산출물은 `verification/tls-sample.yml`, `verification/mtls-config.xlsx`, `verification/mtls-config.yml`이며 Git 추적에서 제외한다.
+
 ## 유닛 간 실행 간격 (2026-10-09)
 
 푸시 전 Java 21 Maven verify를 다시 실행하여 전체 258개 테스트의 실패·오류·생략 0건과 JAR 빌드 성공을 확인했다. 최종 로그는 `verification/delay-push-verify.log`다.

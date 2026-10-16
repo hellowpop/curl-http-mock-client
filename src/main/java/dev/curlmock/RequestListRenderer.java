@@ -19,7 +19,7 @@ final class RequestListRenderer extends DefaultListCellRenderer {
 
     @Override public Component getListCellRendererComponent(JList<?> list, Object value,
             int index, boolean selected, boolean focus) {
-        String path = ((PayloadType) value).path();
+        String path = ((PayloadType) value).searchText();
         var tokens = RequestSearch.tokens(keyword.get());
         String label = caseNumber.applyAsInt(index) + ". ";
         if (tokens.isEmpty()) label += path;

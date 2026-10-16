@@ -18,12 +18,15 @@ final class PayloadTypesExpansion {
             var contentTypes = values(entry, "contentType", index, ContentType::parse);
             var encodings = values(entry, "transferEncoding", index, TransferEncoding::parse);
             var sizes = values(entry, "payloadSize", index, PayloadSize::parse);
-            for (var ct : contentTypes) for (var te : encodings) for (var ps : sizes) {
+            var requestTypes = entry.has("requestType") ? values(entry, "requestType", index, RequestType::parse)
+                    : java.util.Collections.<RequestType>singletonList(null);
+            for (var ct : contentTypes) for (var te : encodings) for (var ps : sizes) for (var rt : requestTypes) {
                 // Keep other fields so Jackson still rejects unknown entry properties.
                 ObjectNode combination = entry.deepCopy();
                 combination.put("contentType", ct.token());
                 combination.put("transferEncoding", te.name());
                 combination.put("payloadSize", ps.token());
+                if (rt != null) combination.put("requestType", rt.name());
                 expanded.add(combination);
             }
             index++;

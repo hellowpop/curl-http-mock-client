@@ -13,19 +13,19 @@ import static org.junit.jupiter.api.Assertions.*;
 class ConfigFilesTest {
     @TempDir Path temp;
 
-    @Test void preservesAllNinetySixScenariosAndResolvedPathsAcrossDirectories() throws Exception {
+    @Test void preservesAllOneHundredTwentyScenariosAndResolvedPathsAcrossDirectories() throws Exception {
         Path source = temp.resolve("a/config.yml");
         Path excel = temp.resolve("b/config.xlsx");
         Path back = temp.resolve("c/config.yaml");
         ConfigFiles.write(source, ClientConfig.sample(), false);
         var expected = ConfigFiles.read(source);
-        assertEquals(96, expected.payloadTypes().size());
+        assertEquals(120, expected.payloadTypes().size());
         assertEquals(temp.resolve("a/results").toString(), expected.outputDirectory());
         ConfigFiles.convert(source, excel, false);
         ConfigFiles.convert(excel, back, false);
         assertEquals(expected, ConfigFiles.read(back));
         try (var book = new XSSFWorkbook(Files.newInputStream(excel))) {
-            assertEquals(97, book.getSheet("PayloadTypes").getPhysicalNumberOfRows());
+            assertEquals(121, book.getSheet("PayloadTypes").getPhysicalNumberOfRows());
             assertEquals("key", book.getSheet("Settings").getRow(0).getCell(0).getStringCellValue());
         }
     }
@@ -104,7 +104,7 @@ class ConfigFilesTest {
             }
             try (var out = Files.newOutputStream(excel)) { book.write(out); }
         }
-        assertEquals(96, ConfigFiles.read(excel).payloadTypes().size());
+        assertEquals(120, ConfigFiles.read(excel).payloadTypes().size());
     }
 
     @Test void expandsCommaSeparatedValuesInDeclaredOrder() throws Exception {
@@ -136,7 +136,7 @@ class ConfigFilesTest {
             row.getCell(2).setCellValue("CM,SM");
             try (var out = Files.newOutputStream(excel)) { book.write(out); }
         }
-        var expected = read("endpointUrl: http://localhost:8080\npayloadTypes:\n  - contentType: json, xml\n    transferEncoding: GZ,CSB\n    payloadSize: CM,SM\n");
+        var expected = read("endpointUrl: https://localhost:8443\npayloadTypes:\n  - contentType: json, xml\n    transferEncoding: GZ,CSB\n    payloadSize: CM,SM\n");
         assertEquals(expected, ConfigFiles.read(excel));
         Path yaml = temp.resolve("converted/multi.yml");
         ConfigFiles.convert(excel, yaml, false);
